@@ -1,6 +1,8 @@
-client/
 node_modules/
 *.log
 .env.local
 .git/
 README.md
+dist/
+test/
+src/

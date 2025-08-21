@@ -10,3 +10,6 @@ restartPolicyMaxRetries = 10
 [[services]]
 name = "velto-mcp-server"
 type = "background"
+
+[deploy.env]
+NODE_ENV = "production"
