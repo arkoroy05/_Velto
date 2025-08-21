@@ -1,9 +1,9 @@
 [build]
 builder = "nixpacks"
-buildCommand = "cd memory && npm install && npm run build"
+buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "cd memory && npm run railway:start"
+startCommand = "npm run railway:start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
