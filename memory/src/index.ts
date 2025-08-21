@@ -32,7 +32,8 @@ const rateLimiter = rateLimit({
   }
 })
 
-// Rate limiting middleware is applied directly
+// Trust proxy for rate limiting behind Render.com
+app.set('trust proxy', 1)
 
 // Middleware
 app.use(helmet())

@@ -6,10 +6,14 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js'
 import { ObjectId } from 'mongodb'
+import dotenv from 'dotenv'
 import { databaseService } from '../services/database'
 import { getContextProcessor } from '../ai/context-processor'
 import { Context } from '../types'
 import { logger } from '../utils/logger'
+
+// Load environment variables
+dotenv.config({ path: '.env.local' })
 
 class VeltoMCPServer {
   private server: Server

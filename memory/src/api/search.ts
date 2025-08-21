@@ -51,6 +51,78 @@ const extractUserId = (req: express.Request, res: express.Response, next: expres
   next()
 }
 
+// GET /api/v1/search - Simple search endpoint
+router.get('/', extractUserId, async (req, res): Promise<void> => {
+  try {
+    const { query, projectId, type, tags, limit = 10, offset = 0 } = req.query
+    
+    if (!query) {
+      res.status(400).json({
+        success: false,
+        error: 'Search query is required'
+      })
+      return
+    }
+
+    const collection = databaseService.getCollection<Context>('contexts')
+    
+    // Build filter
+    let filter: any = { userId: new ObjectId(req.userId!) }
+    
+    if (projectId) {
+      filter.projectId = new ObjectId(projectId as string)
+    }
+    
+    if (type) {
+      filter.type = type
+    }
+    
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : [tags]
+      filter.tags = { $in: tagArray }
+    }
+
+    // Text search
+    if (query) {
+      filter.$text = { $search: query as string }
+    }
+
+    const contexts = await collection
+      .find(filter)
+      .sort(query ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
+      .skip(Number(offset))
+      .limit(Number(limit))
+      .toArray()
+
+    const total = await collection.countDocuments(filter)
+
+    res.json({
+      success: true,
+      data: contexts.map(ctx => ({
+        id: ctx._id?.toString(),
+        title: ctx.title,
+        content: ctx.content,
+        type: ctx.type,
+        tags: ctx.tags,
+        projectId: ctx.projectId?.toString(),
+        createdAt: ctx.createdAt,
+        aiAnalysis: ctx.aiAnalysis
+      })),
+      pagination: {
+        page: Math.floor(Number(offset) / Number(limit)) + 1,
+        limit: Number(limit),
+        total
+      }
+    })
+  } catch (error) {
+    logger.error('Error in search:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Search failed'
+    })
+  }
+})
+
 // POST /api/v1/search - Advanced search with semantic capabilities
 router.post('/', extractUserId, async (req, res): Promise<void> => {
   try {

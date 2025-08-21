@@ -497,6 +497,61 @@ router.post('/:id/prompt-version', extractUserId, async (req, res): Promise<void
   }
 })
 
+// POST /api/v1/contexts/:id/analyze - Re-analyze context with AI
+router.post('/:id/analyze', extractUserId, async (req, res): Promise<void> => {
+  try {
+    const { id } = req.params
+    
+    if (!id || !ObjectId.isValid(id)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid context ID'
+      })
+      return
+    }
+
+    const collection = databaseService.getCollection<Context>('contexts')
+    const context = await collection.findOne({
+      _id: new ObjectId(id),
+      userId: new ObjectId(req.userId!)
+    })
+
+    if (!context) {
+      res.status(404).json({
+        success: false,
+        error: 'Context not found'
+      })
+      return
+    }
+
+    // Re-analyze the context
+    const analysis = await getContextProcessor().analyzeContext(context)
+
+    // Update the context with new analysis
+    await collection.updateOne(
+      { _id: new ObjectId(id) },
+      { 
+        $set: { 
+          aiAnalysis: analysis,
+          updatedAt: new Date()
+        }
+      }
+    )
+
+    res.json({
+      success: true,
+      data: { analysis },
+      message: 'Context re-analyzed successfully'
+    })
+  } catch (error) {
+    logger.error('Error re-analyzing context:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Failed to re-analyze context'
+    })
+  }
+})
+
 // GET /api/v1/contexts/:id/graph - Get context graph for a project
 router.get('/:id/graph', extractUserId, async (req, res): Promise<void> => {
   try {
