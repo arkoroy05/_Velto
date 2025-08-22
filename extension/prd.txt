@@ -1,0 +1,49 @@
+Velto Chrome Extension - Complete Implementation Prompt
+You are building a Chrome extension called Velto that provides shared memory for AI developers across ChatGPT, Claude, and Cursor. The extension helps developers capture code snippets, error logs, and AI conversations, then replay them across different AI tools.
+Project Structure
+Create a Chrome extension with Manifest V3 using React, TypeScript, and Tailwind CSS. The popup should be 380px wide by 600px tall with dark theme styling matching modern SaaS applications.
+Design System Requirements
+Use a dark-first design with deep blue backgrounds (hex #1a1f3a for main background, #2d3561 for cards). Primary accent color is purple-blue #6366f1. Text should be light gray #e5e7eb with white headings. Cards should have subtle borders using #374151 and 12px border radius. Use 8px spacing grid system throughout.
+All buttons should have 8px border radius with medium font weight. Primary buttons use purple gradient background, secondary buttons are transparent with gray borders. Hover states should include 150ms transitions with subtle scale effects.
+Typography uses system font stack with 14px base size, 16px for headings, and 12px for metadata. Use 500 font weight for buttons, 600 for headings, and 400 for body text.
+Main Application States
+The extension has five main screens: welcome screen for new users, onboarding flow with three steps, main dashboard showing context list, context detail view, and settings screen.
+For unauthenticated users, show a welcome screen with Velto brain logo, tagline "Shared Memory for AI Tools", description about eliminating copy-paste between AI tools, and two auth buttons for GitHub and Google signin with purple styling.
+Onboarding Flow
+Create a three-step onboarding after authentication. Step one configures the capture hotkey defaulting to Cmd+Shift+V with option to customize. Show current hotkey in a gray pill with edit button. Include skip and next buttons.
+Step two shows AI tool integration status with checkmarks for ChatGPT, Claude, and Cursor, plus a warning icon for GitHub Copilot coming soon. Explain that Velto will auto-inject context into these tools.
+Step three provides a try-it-now experience with sample JavaScript code block that users can select to test the capture functionality. Include finish button to complete onboarding.
+Main Dashboard
+The home screen shows a search bar at top with search icon and placeholder "Search contexts...". Below that is a header row with "Recent Contexts" title and a purple "New" button with plus icon.
+Context list items are cards with context name as heading, metadata row showing time ago and snippet count, and "Last used in" with AI tool name. Each card has a lightning bolt icon with up-arrow for quick injection actions.
+When no contexts exist, show empty state with brain icon, "Your AI brain is empty!" heading, instructional text about capturing content, and numbered steps to get started. Include a "View Tutorial" button.
+Context Detail View
+Context detail screen has back arrow, context name, and settings icon in header. Show tag pills below title with ability to add new tags.
+Quick actions section contains four buttons in a grid: "Copy All Context", "Replay in ChatGPT", "Replay in Claude", and "Replay in Cursor". All buttons have icons and purple hover states.
+Context snippets section shows a list of captured items. Each snippet card displays type icon (file, chat bubble, or tool icon), title, timestamp with "From: source" metadata, code preview in gray background with copy button, and syntax highlighting for code blocks.
+Settings Screen
+Settings screen has sections for Hotkeys, AI Tool Integration, Data Privacy, and Account. Hotkeys section shows current shortcuts with edit pencil icons. AI tool integration shows checkmarks for enabled tools and warning icons for pending ones.
+Data privacy section has toggle switches for auto-capture, local encryption, and usage data sharing. Account section shows user email and buttons for password change and sign out.
+Interactive Elements
+All capture interactions trigger from Cmd+Shift+V hotkey. When text is selected and hotkey pressed, show floating confirmation tooltip near selection with checkmark, "Captured to Velto" message, and buttons to edit or view context.
+For new captures without existing context, show inline context creation form with name input, optional tags input, preview of captured content, and save/cancel buttons.
+AI Tool Injection Flow
+When user clicks replay button, show injection confirmation modal with context name, list of items to inject, and prominent "Inject & Open [AI Tool]" button. Include checkbox to remember choice for this context.
+During injection, show status overlay with spinner, injection progress, and stop button. After successful injection, automatically open target AI tool in new tab.
+Error States
+Handle offline mode by showing connection lost screen with retry button and offline indicator. Show local context count and explain that data will sync when online.
+For API errors, show user-friendly messages with retry options. For permission errors with AI tools, guide users to grant necessary permissions.
+API Integration
+Use these endpoints: GET /api/v1/contexts for listing, POST /api/v1/contexts for creation, PUT /api/v1/contexts/:id for updates, DELETE /api/v1/contexts/:id for deletion, and POST /api/v1/contexts/:id/prompt-version for generating injection prompts.
+Implement proper loading states for all API calls with skeleton screens. Cache contexts locally using Chrome storage API for offline access. Handle rate limiting gracefully with user feedback.
+Chrome Extension Specific Requirements
+Manifest V3 with permissions for activeTab, storage, and host permissions for ChatGPT, Claude, and Cursor domains. Background service worker handles API communication and cross-tab messaging.
+Content scripts for each AI tool domain handle DOM injection and capture functionality. Popup script manages the React application state and user interactions.
+Use Chrome runtime messaging for communication between popup, content scripts, and background worker. Store user preferences and cached data using Chrome storage.sync API.
+Performance Requirements
+Popup should load in under 500ms. Capture action should complete in under 2 seconds. Context search should be instant with local filtering. All animations should be 150ms or less.
+Implement proper error boundaries and fallback states. Use lazy loading for context detail views. Minimize bundle size with tree shaking and code splitting.
+Accessibility
+Ensure all interactive elements have proper ARIA labels. Support keyboard navigation throughout the interface. Maintain 4.5:1 color contrast ratios. Provide focus indicators with purple ring styling.
+Screen reader support for all dynamic content updates. Semantic HTML structure with proper heading hierarchy. Alt text for all icons and images.
+Make this extension feel magical - like developers' AI tools suddenly gained shared intelligence. Every interaction should reinforce the core value proposition of eliminating context switching friction.

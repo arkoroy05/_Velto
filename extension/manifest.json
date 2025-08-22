@@ -1,0 +1,47 @@
+{
+    "name": "Velto",
+    "description": "Shared memory for AI tools. Capture and replay context across ChatGPT, Claude, and Cursor.",
+    "version": "0.1.0",
+    "manifest_version": 3,
+    "action": {
+      "default_popup": "index.html",
+      "default_title": "Velto"
+    },
+    "background": {
+      "service_worker": "src/background/service-worker.js",
+      "type": "module"
+    },
+    "permissions": ["activeTab", "storage", "tabs"],
+    "host_permissions": [
+      "https://chat.openai.com/*",
+      "https://claude.ai/*",
+      "https://www.cursor.com/*",
+      "https://cursor.sh/*"
+    ],
+    "content_scripts": [
+      {
+        "matches": ["https://chat.openai.com/*"],
+        "js": ["src/content/chatgpt.js"],
+        "run_at": "document_idle"
+      },
+      {
+        "matches": ["https://claude.ai/*"],
+        "js": ["src/content/claude.js"],
+        "run_at": "document_idle"
+      },
+      {
+        "matches": ["https://www.cursor.com/*", "https://cursor.sh/*"],
+        "js": ["src/content/cursor.js"],
+        "run_at": "document_idle"
+      }
+    ],
+    "commands": {
+      "capture": {
+        "suggested_key": {
+          "default": "Ctrl+Shift+V",
+          "mac": "Command+Shift+V"
+        },
+        "description": "Capture selection to Velto"
+      }
+    }
+  }
