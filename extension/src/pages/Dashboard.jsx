@@ -50,13 +50,33 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-2">
           {contexts.map((c) => (
-            <Link key={c.id} to={`/context/${c.id}`} className="block border border-gray-700 rounded-md p-3 bg-card/60 hover:scale-[1.01] transition-transform">
-              <div className="flex items-center justify-between">
-                <h4 className="text-white font-semibold">{c.name}</h4>
-                <span title="Quick inject" aria-label="Quick inject">⚡️⬆️</span>
+            <div key={c.id} className="border border-gray-700 rounded-md p-3 bg-card/60 hover:scale-[1.01] transition-transform">
+              <Link to={`/context/${c.id}`} className="block">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-white font-semibold">{c.name}</h4>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700" title="Source">{c.lastTool}</span>
+                </div>
+                <div className="text-gray-400 text-xs">{c.timeAgo} • {c.snippetCount} snippets</div>
+              </Link>
+              <div className="flex items-center gap-2 mt-2 text-xs">
+                <button
+                  className="bg-gray-800 text-gray-200 px-2 py-1 rounded-md border border-gray-700"
+                  title="Replay"
+                  onClick={async (e) => { e.stopPropagation(); e.preventDefault(); /* TODO: implement injection */ }}
+                >▶ Replay</button>
+                <Link
+                  to={`/context/${c.id}`}
+                  className="bg-gray-800 text-gray-200 px-2 py-1 rounded-md border border-gray-700"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Edit"
+                >✏ Edit</Link>
+                <button
+                  className="bg-gray-800/60 text-gray-500 px-2 py-1 rounded-md border border-gray-700 cursor-not-allowed"
+                  title="Delete (coming soon)"
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                >🗑 Delete</button>
               </div>
-              <div className="text-gray-400 text-xs">{c.timeAgo} • {c.snippetCount} snippets • Last used in {c.lastTool}</div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

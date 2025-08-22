@@ -8,6 +8,9 @@ import Onboarding from './pages/Onboarding.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import ContextDetail from './pages/ContextDetail.jsx'
 import Settings from './pages/Settings.jsx'
+import Login from './pages/Login.jsx'
+import Search from './pages/Search.jsx'
+import Capture from './pages/Capture.jsx'
 
 
 const router = createHashRouter([
@@ -16,8 +19,11 @@ const router = createHashRouter([
     element: <App />,
     children: [
       { index: true, element: <Dashboard /> },
+      { path: 'login', element: <Login /> },
       { path: 'welcome', element: <Welcome /> },
       { path: 'onboarding', element: <Onboarding /> },
+      { path: 'search', element: <Search /> },
+      { path: 'capture', element: <Capture /> },
       { path: 'context/:id', element: <ContextDetail /> },
       { path: 'settings', element: <Settings /> },
     ],
