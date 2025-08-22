@@ -1,7 +1,22 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { MSG } from '../lib/constants.js'
 
 export default function Dashboard() {
-  const contexts = []
+  const [contexts, setContexts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    try {
+      chrome.runtime.sendMessage({ type: MSG.CONTEXTS_LIST }, (res) => {
+        setContexts(res?.items || [])
+        setLoading(false)
+      })
+    } catch (e) {
+      console.warn('[Velto] Failed to load contexts', e)
+      setLoading(false)
+    }
+  }, [])
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2">
@@ -18,7 +33,9 @@ export default function Dashboard() {
         <h2 className="text-white text-base font-semibold">Recent Contexts</h2>
       </div>
 
-      {contexts.length === 0 ? (
+      {loading ? (
+        <div className="text-gray-400 text-sm">Loading...</div>
+      ) : contexts.length === 0 ? (
         <div className="border border-gray-700 rounded-md p-4 bg-card/60 text-center space-y-2">
           <div className="text-2xl" aria-hidden>🧠</div>
           <h3 className="text-white font-semibold">Your AI brain is empty!</h3>
