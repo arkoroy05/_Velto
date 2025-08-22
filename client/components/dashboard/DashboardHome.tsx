@@ -106,14 +106,6 @@ export default function DashboardHome({
       <div className="mb-8">
         <div className="flex items-center gap-4">
           <Button
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => console.log("[v0] Create new context")}
-            disabled={isLoading}
-          >
-            <Rocket className="w-4 h-4 mr-2" />
-            New Context
-          </Button>
-          <Button
             variant="outline"
             className="border-[#333333] text-gray-300 hover:bg-[#1a1a1a] bg-transparent"
             onClick={() => console.log("[v0] Quick import")}

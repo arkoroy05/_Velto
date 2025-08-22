@@ -1,10 +1,10 @@
 "use client"
 
 import React from "react"
-import { Search, Plus, Loader2, Bell } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Plus, Loader2, Bell } from "lucide-react"
+import { RainbowButton } from "@/components/ui/rainbow-button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input"
 
 interface TopbarProps {
   searchQuery: string
@@ -14,26 +14,29 @@ interface TopbarProps {
 }
 
 export default function Topbar({ searchQuery, setSearchQuery, onNewContext, isLoading }: TopbarProps) {
+  const placeholders = [
+    "Search threads, snippets, or AI conversations...",
+    "Filter by model or tag",
+    "Find context: Authentication Debug Session",
+    "Search: API Performance Analysis",
+  ]
   return (
     <div className="border-b border-[#2a2a2a] p-4">
       <div className="flex items-center justify-between">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input
-              id="search-input"
-              placeholder="Search threads, snippets, or AI conversations... (⌘K)"
-              className="w-full bg-[#1a1a1a] border-[#333333] text-white pl-10 focus:border-blue-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+        <div className="flex-1 max-w-xl">
+          <PlaceholdersAndVanishInput
+            placeholders={placeholders}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onSubmit={(e) => {
+              e.preventDefault()
+            }}
+          />
         </div>
         <div className="flex items-center gap-3">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={onNewContext} disabled={isLoading}>
-            {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+          <RainbowButton className="gap-2" onClick={onNewContext} disabled={isLoading}>
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             New Context
-          </Button>
+          </RainbowButton>
           <Bell className="w-5 h-5 text-gray-400 cursor-pointer hover:text-white" />
           <Avatar className="w-8 h-8">
             <AvatarFallback className="bg-[#333333] text-white">D</AvatarFallback>

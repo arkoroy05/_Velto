@@ -37,6 +37,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Rainbow gradient colors */
+  --color-1: 0 100% 63%;
+  --color-2: 270 100% 63%;
+  --color-3: 210 100% 63%;
+  --color-4: 195 100% 63%;
+  --color-5: 90 100% 63%;
 }
 
 .dark {
@@ -120,4 +126,14 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Tailwind v4: define custom keyframes and utility for rainbow animation */
+@keyframes rainbow {
+  0% { background-position: 0%; }
+  100% { background-position: 200%; }
+}
+
+@utility animate-rainbow {
+  animation: rainbow var(--speed, 2s) infinite linear;
 }

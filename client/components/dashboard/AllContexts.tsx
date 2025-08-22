@@ -48,10 +48,6 @@ export default function AllContexts({ contexts, isLoading, onAction }: AllContex
             <Filter className="w-4 h-4 mr-2" />
             Filter
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled={isLoading}>
-            <Plus className="w-4 h-4 mr-2" />
-            New Context
-          </Button>
         </div>
       </div>
 
