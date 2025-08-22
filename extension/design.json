@@ -1,0 +1,279 @@
+{
+    "designSystemProfile": {
+      "name": "Modern SaaS Interface Design System",
+      "version": "1.0",
+      "description": "A design system profile for creating modern, dark-themed SaaS applications with emphasis on data visualization and project management interfaces",
+      
+      "colorPalette": {
+        "primary": {
+          "darkBlue": "#1a1f3a",
+          "mediumBlue": "#2d3561",
+          "lightBlue": "#4a5c8c",
+          "accentBlue": "#6366f1",
+          "brightBlue": "#8b5cf6"
+        },
+        "secondary": {
+          "darkGray": "#0f1419",
+          "mediumGray": "#1f2937",
+          "lightGray": "#374151",
+          "textGray": "#9ca3af"
+        },
+        "accent": {
+          "green": "#10b981",
+          "yellow": "#fbbf24",
+          "red": "#ef4444",
+          "purple": "#8b5cf6",
+          "orange": "#f97316"
+        },
+        "semantic": {
+          "success": "#22c55e",
+          "warning": "#eab308",
+          "error": "#ef4444",
+          "info": "#3b82f6"
+        },
+        "neutral": {
+          "white": "#ffffff",
+          "offWhite": "#f8fafc",
+          "darkBackground": "#0a0e1a",
+          "cardBackground": "#1e2642"
+        }
+      },
+  
+      "typography": {
+        "fontFamilies": {
+          "primary": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          "monospace": "'SF Mono', Monaco, 'Cascadia Code', monospace"
+        },
+        "fontSizes": {
+          "xs": "0.75rem",
+          "sm": "0.875rem",
+          "base": "1rem",
+          "lg": "1.125rem",
+          "xl": "1.25rem",
+          "2xl": "1.5rem",
+          "3xl": "1.875rem",
+          "4xl": "2.25rem",
+          "hero": "3.5rem"
+        },
+        "fontWeights": {
+          "light": 300,
+          "normal": 400,
+          "medium": 500,
+          "semibold": 600,
+          "bold": 700
+        },
+        "lineHeights": {
+          "tight": 1.25,
+          "normal": 1.5,
+          "relaxed": 1.75
+        }
+      },
+  
+      "spacing": {
+        "scale": [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128],
+        "component": {
+          "cardPadding": "24px",
+          "sectionPadding": "32px",
+          "itemSpacing": "12px",
+          "iconSpacing": "8px"
+        }
+      },
+  
+      "borderRadius": {
+        "none": "0",
+        "sm": "4px",
+        "base": "8px",
+        "md": "12px",
+        "lg": "16px",
+        "xl": "20px",
+        "full": "50%"
+      },
+  
+      "shadows": {
+        "none": "none",
+        "sm": "0 1px 3px rgba(0, 0, 0, 0.12)",
+        "base": "0 4px 12px rgba(0, 0, 0, 0.15)",
+        "lg": "0 8px 24px rgba(0, 0, 0, 0.25)",
+        "glow": "0 0 20px rgba(99, 102, 241, 0.3)"
+      },
+  
+      "layoutPatterns": {
+        "navigation": {
+          "type": "sidebar",
+          "position": "left",
+          "width": "240px",
+          "collapsible": true,
+          "structure": {
+            "logo": "top",
+            "primaryNavigation": "grouped-sections",
+            "secondaryActions": "bottom"
+          }
+        },
+        "header": {
+          "height": "64px",
+          "structure": {
+            "left": "breadcrumbs-or-title",
+            "center": "search-or-tabs",
+            "right": "user-actions"
+          }
+        },
+        "contentArea": {
+          "layout": "grid-based",
+          "maxWidth": "1200px",
+          "gutters": "24px"
+        }
+      },
+  
+      "componentPatterns": {
+        "cards": {
+          "style": "elevated",
+          "background": "semi-transparent",
+          "border": "subtle",
+          "borderRadius": "12px",
+          "padding": "24px",
+          "shadow": "base"
+        },
+        "buttons": {
+          "primary": {
+            "background": "gradient",
+            "borderRadius": "8px",
+            "padding": "12px 24px",
+            "fontWeight": "medium"
+          },
+          "secondary": {
+            "background": "transparent",
+            "border": "1px solid",
+            "borderRadius": "8px"
+          }
+        },
+        "forms": {
+          "inputStyle": "filled",
+          "borderRadius": "8px",
+          "focusState": "glow-effect",
+          "labelPosition": "top"
+        },
+        "dataVisualization": {
+          "charts": {
+            "style": "modern-minimal",
+            "colors": "gradient-based",
+            "gridLines": "subtle",
+            "tooltips": "floating-cards"
+          },
+          "tables": {
+            "headerStyle": "sticky",
+            "rowHover": "highlight",
+            "borders": "minimal"
+          }
+        }
+      },
+  
+      "interactionPatterns": {
+        "hover": {
+          "transition": "150ms ease-in-out",
+          "effects": ["scale-105", "opacity-change", "glow-increase"]
+        },
+        "focus": {
+          "outline": "ring-style",
+          "color": "accent-blue",
+          "width": "2px"
+        },
+        "loading": {
+          "style": "skeleton-shimmer",
+          "duration": "1.5s"
+        },
+        "animations": {
+          "pageTransition": "fade-slide",
+          "modalEntry": "scale-fade",
+          "listItems": "stagger-fade"
+        }
+      },
+  
+      "designPrinciples": {
+        "darkModeFirst": {
+          "description": "Design primarily for dark themes with high contrast",
+          "implementation": "Dark backgrounds with light text and vibrant accents"
+        },
+        "dataFocused": {
+          "description": "Prioritize data visibility and hierarchy",
+          "implementation": "Clear typography scales, subtle backgrounds, prominent data points"
+        },
+        "modernMinimalism": {
+          "description": "Clean, uncluttered interfaces with purposeful elements",
+          "implementation": "Generous whitespace, subtle borders, focused color usage"
+        },
+        "glassmorphism": {
+          "description": "Semi-transparent elements with blur effects",
+          "implementation": "backdrop-filter: blur(), rgba backgrounds"
+        },
+        "consistentSpacing": {
+          "description": "Rhythmic spacing system throughout all components",
+          "implementation": "8px base grid system with consistent multipliers"
+        }
+      },
+  
+      "responsiveBreakpoints": {
+        "mobile": "320px",
+        "tablet": "768px",
+        "desktop": "1024px",
+        "wide": "1440px"
+      },
+  
+      "accessibilityGuidelines": {
+        "colorContrast": {
+          "minimum": "4.5:1",
+          "enhanced": "7:1"
+        },
+        "focusManagement": {
+          "visible": true,
+          "logical": true,
+          "trapped": "modals-only"
+        },
+        "semanticMarkup": {
+          "required": true,
+          "landmarks": "nav, main, aside, footer",
+          "headingHierarchy": "strict"
+        }
+      },
+  
+      "implementationNotes": {
+        "cssFramework": "Tailwind CSS recommended",
+        "componentLibrary": "Headless UI or similar",
+        "iconSystem": "Lucide React or Heroicons",
+        "chartLibrary": "Recharts or D3.js",
+        "animationLibrary": "Framer Motion",
+        "buildConsiderations": {
+          "darkMode": "class-based switching",
+          "theming": "CSS custom properties",
+          "performance": "lazy-loaded components",
+          "bundling": "tree-shaking optimized"
+        }
+      },
+  
+      "commonComponents": {
+        "sidebar": {
+          "collapsible": true,
+          "iconBasedNavigation": true,
+          "nestedSections": true,
+          "statusIndicators": true
+        },
+        "dataTable": {
+          "sortableColumns": true,
+          "filterableRows": true,
+          "paginationControls": true,
+          "rowSelection": true
+        },
+        "dashboardCards": {
+          "metricDisplays": true,
+          "miniCharts": true,
+          "percentageChanges": true,
+          "trendIndicators": true
+        },
+        "modals": {
+          "backdropBlur": true,
+          "slideInAnimation": true,
+          "closeOnEscape": true,
+          "focusTrap": true
+        }
+      }
+    }
+  }
