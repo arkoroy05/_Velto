@@ -70,13 +70,31 @@ async function syncWithBackend() {
 }
 
 // ----- Commands (hotkeys) -----
+async function isTabMonitoring(tabId) {
+  return await new Promise((resolve) => {
+    try {
+      chrome.tabs.sendMessage(tabId, { type: MSG.CAPTURE_STATE_GET }, (res) => {
+        if (chrome.runtime.lastError) {
+          // No content script or cannot reach; assume not monitoring
+          return resolve(false);
+        }
+        resolve(!!res?.monitoring);
+      });
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== CMD.CAPTURE) return;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      await chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_REQUEST });
-    }
+    if (!tab?.id) return;
+
+    const monitoring = await isTabMonitoring(tab.id);
+    const type = monitoring ? MSG.CAPTURE_STOP : MSG.CAPTURE_REQUEST;
+    await chrome.tabs.sendMessage(tab.id, { type });
   } catch (e) {
     console.warn('[Velto] capture command failed:', e);
   }

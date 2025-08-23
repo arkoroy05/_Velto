@@ -61,6 +61,8 @@ async function handleCapture() {
 // Enhanced conversation monitoring
 let lastUserMessage = '';
 let isMonitoring = false;
+let inputObserver = null;
+let responseObserver = null;
 
 function startConversationMonitoring() {
   if (isMonitoring) return;
@@ -72,6 +74,40 @@ function startConversationMonitoring() {
   
   // Monitor AI responses
   monitorAIResponses();
+}
+
+function stopConversationMonitoring() {
+  if (!isMonitoring) return;
+  isMonitoring = false;
+  console.log('[Velto] ⏹️ Stopped monitoring ChatGPT conversations');
+
+  // Disconnect observers
+  try { inputObserver?.disconnect(); } catch (_) {}
+  try { responseObserver?.disconnect(); } catch (_) {}
+  inputObserver = null;
+  responseObserver = null;
+
+  // Remove listeners from monitored inputs
+  const inputs = document.querySelectorAll('[data-velto-monitored="true"], textarea[data-testid="prompt-textarea"], [data-testid="prompt-textarea"], div[role="textbox"][contenteditable="true"], [contenteditable="true"][data-testid], main textarea, form textarea, footer textarea');
+  inputs.forEach((el) => {
+    try {
+      if (el._veltoOnInput) el.removeEventListener('input', el._veltoOnInput);
+      if (el._veltoOnCompositionEnd) el.removeEventListener('compositionend', el._veltoOnCompositionEnd);
+      if (el._veltoOnKeydown) el.removeEventListener('keydown', el._veltoOnKeydown);
+      if (el._veltoTypingTimer) clearTimeout(el._veltoTypingTimer);
+      if (el._veltoForm && el._veltoOnFormSubmit) el._veltoForm.removeEventListener('submit', el._veltoOnFormSubmit);
+      if (el._veltoSendButton && el._veltoOnSendClick) el._veltoSendButton.removeEventListener('click', el._veltoOnSendClick);
+      delete el.dataset.veltoMonitored;
+      delete el._veltoOnInput;
+      delete el._veltoOnCompositionEnd;
+      delete el._veltoOnKeydown;
+      delete el._veltoTypingTimer;
+      delete el._veltoForm;
+      delete el._veltoOnFormSubmit;
+      delete el._veltoSendButton;
+      delete el._veltoOnSendClick;
+    } catch (_) {}
+  });
 }
 
 function monitorUserInput() {
@@ -101,6 +137,7 @@ function monitorUserInput() {
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
+  inputObserver = observer;
 
   // Setup listeners for existing textareas
   document.querySelectorAll(inputSelector).forEach(setupInputListener);
@@ -123,11 +160,13 @@ function setupInputListener(textarea) {
     clearTimeout(textarea._veltoTypingTimer);
     textarea._veltoTypingTimer = setTimeout(logTyping, 500);
   };
-  textarea.addEventListener('input', onInput);
-  textarea.addEventListener('compositionend', onInput);
+  textarea._veltoOnInput = onInput;
+  textarea._veltoOnCompositionEnd = onInput;
+  textarea.addEventListener('input', textarea._veltoOnInput);
+  textarea.addEventListener('compositionend', textarea._veltoOnCompositionEnd);
 
   // Listen for Enter key or send button clicks
-  textarea.addEventListener('keydown', (e) => {
+  const onKeydown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       const message = getValue() || '';
       if (message.trim() && message !== lastUserMessage) {
@@ -135,24 +174,29 @@ function setupInputListener(textarea) {
         console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
       }
     }
-  });
+  };
+  textarea._veltoOnKeydown = onKeydown;
+  textarea.addEventListener('keydown', textarea._veltoOnKeydown);
 
   // Also monitor send button clicks
   const form = textarea.closest('form');
   if (form) {
-    form.addEventListener('submit', () => {
+    const onFormSubmit = () => {
       const message = getValue() || '';
       if (message.trim() && message !== lastUserMessage) {
         lastUserMessage = message.trim();
         console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
       }
-    });
+    };
+    textarea._veltoForm = form;
+    textarea._veltoOnFormSubmit = onFormSubmit;
+    form.addEventListener('submit', textarea._veltoOnFormSubmit);
   }
 
   // Also monitor explicit send button clicks near the input
   const sendButton = document.querySelector('[data-testid="send-button"], button[type="submit"]');
   if (sendButton) {
-    sendButton.addEventListener('click', () => {
+    const onSendClick = () => {
       setTimeout(() => {
         const message = getValue() || '';
         if (message.trim() && message !== lastUserMessage) {
@@ -160,12 +204,15 @@ function setupInputListener(textarea) {
           console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
         }
       }, 100);
-    });
+    };
+    textarea._veltoSendButton = sendButton;
+    textarea._veltoOnSendClick = onSendClick;
+    sendButton.addEventListener('click', textarea._veltoOnSendClick);
   }
 }
 
 function monitorAIResponses() {
-  const responseObserver = new MutationObserver((mutations) => {
+  const respObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === 1) { // Element node
@@ -200,13 +247,20 @@ function monitorAIResponses() {
     });
   });
 
-  responseObserver.observe(document.body, { childList: true, subtree: true });
+  respObserver.observe(document.body, { childList: true, subtree: true });
+  responseObserver = respObserver;
 }
 
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === MSG.CAPTURE_REQUEST) {
     console.log('[Velto] ▶️ Capture clicked: enabling ChatGPT monitoring');
     startConversationMonitoring();
     handleCapture();
+  } else if (msg?.type === MSG.CAPTURE_STOP) {
+    console.log('[Velto] ⏹️ End capture requested');
+    stopConversationMonitoring();
+  } else if (msg?.type === MSG.CAPTURE_STATE_GET) {
+    sendResponse?.({ monitoring: isMonitoring });
+    return true;
   }
 });

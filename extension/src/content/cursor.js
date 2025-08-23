@@ -2,6 +2,8 @@ import { MSG } from '../lib/constants.js';
 
 console.log('[Velto] Cursor content script loaded');
 
+let isMonitoring = false;
+
 function getSelectedText() {
   const sel = window.getSelection?.();
   const text = sel ? sel.toString() : '';
@@ -29,8 +31,14 @@ async function handleCapture() {
   });
 }
 
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === MSG.CAPTURE_REQUEST) {
+    isMonitoring = true; // minimal toggle for Cursor
     handleCapture();
+  } else if (msg?.type === MSG.CAPTURE_STOP) {
+    isMonitoring = false;
+  } else if (msg?.type === MSG.CAPTURE_STATE_GET) {
+    sendResponse?.({ monitoring: isMonitoring });
+    return true;
   }
 });

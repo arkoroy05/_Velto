@@ -8,6 +8,7 @@ export default function Capture() {
   const [countBefore, setCountBefore] = useState(0)
   const [backendStatus, setBackendStatus] = useState('unknown') // unknown | connected | disconnected
   const [lastSync, setLastSync] = useState(null)
+  const [monitoring, setMonitoring] = useState(false)
 
   useEffect(() => {
     // read current inbox count for later diff
@@ -19,6 +20,23 @@ export default function Capture() {
 
     // Check backend status
     checkBackendStatus()
+
+    // Query current capture monitoring state on active tab
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (!tab?.id) return
+        chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_STATE_GET }, (res) => {
+          if (chrome.runtime.lastError) {
+            setMonitoring(false)
+            return
+          }
+          setMonitoring(!!res?.monitoring)
+        })
+      } catch (_) {
+        setMonitoring(false)
+      }
+    })()
   }, [])
 
   async function checkBackendStatus() {
@@ -64,18 +82,43 @@ export default function Capture() {
             if (latest) setPreview(latest)
             setStatus('saved')
             setMessage('✅ Snippet saved to Velto')
+
+            // We just started monitoring on supported pages
+            setMonitoring(true)
             
             // Update backend status
             checkBackendStatus()
           } else {
             setStatus('saved')
             setMessage('✅ Capture request sent. If nothing saved, make sure you selected text on a supported site.')
+            setMonitoring(true)
           }
         })
       }, 400)
     } catch (e) {
       setStatus('error')
       setMessage('Failed to capture. Open ChatGPT, Claude, or Cursor and select some text.')
+    }
+  }
+
+  async function handleToggleClick() {
+    if (monitoring) {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (tab?.id) {
+          await new Promise((resolve) => {
+            chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_STOP }, () => resolve())
+          })
+          setMonitoring(false)
+          setStatus('idle')
+          setMessage('Capture stopped. Press Capture to start again.')
+        }
+      } catch (_) {
+        // noop
+      }
+    } else {
+      // Start capture flow
+      handleCaptureClick()
     }
   }
 
@@ -142,8 +185,8 @@ export default function Capture() {
         <div className="text-2xl" aria-hidden>📸</div>
         <h3 className="text-white font-semibold">Manual Capture</h3>
         <p className="text-gray-300 text-sm">{message}</p>
-        <button onClick={handleCaptureClick} disabled={status==='capturing'} className="bg-gradient-to-r from-accent to-accent-bright text-white px-4 py-2 rounded-md text-sm font-medium shadow-glow disabled:opacity-60">
-          {status === 'capturing' ? 'Capturing…' : 'Capture from current tab'}
+        <button onClick={handleToggleClick} disabled={status==='capturing'} className="bg-gradient-to-r from-accent to-accent-bright text-white px-4 py-2 rounded-md text-sm font-medium shadow-glow disabled:opacity-60">
+          {status === 'capturing' ? 'Capturing…' : (monitoring ? 'End Capture' : 'Capture from current tab')}
         </button>
       </div>
 
