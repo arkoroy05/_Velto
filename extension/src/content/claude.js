@@ -58,15 +58,15 @@ async function handleCapture() {
 }
 
 // Enhanced conversation monitoring for Claude
-let lastUserMessage = '';
 let isMonitoring = false;
 let inputObserver = null;
 let responseObserver = null;
 let conversationContext = {
-  userMessages: [],
-  aiResponses: [],
+  conversationTurns: [], // Array of {prompt: string, response: string, timestamp: number}
   sessionId: Date.now().toString(36),
-  startTime: Date.now()
+  startTime: Date.now(),
+  currentPrompt: '', // Track current prompt being typed
+  waitingForResponse: false // Track if we're waiting for AI response
 };
 
 function startConversationMonitoring() {
@@ -76,10 +76,11 @@ function startConversationMonitoring() {
   
   // Reset conversation context
   conversationContext = {
-    userMessages: [],
-    aiResponses: [],
+    conversationTurns: [],
     sessionId: Date.now().toString(36),
-    startTime: Date.now()
+    startTime: Date.now(),
+    currentPrompt: '',
+    waitingForResponse: false
   };
 
   // Monitor user input
@@ -95,7 +96,7 @@ function stopConversationMonitoring() {
   console.log('[Velto] ⏹️ Stopped monitoring Claude conversations');
 
   // Save final conversation context if we have content
-  if (conversationContext.userMessages.length > 0 || conversationContext.aiResponses.length > 0) {
+  if (conversationContext.conversationTurns.length > 0) {
     saveConversationContext();
   }
 
@@ -127,7 +128,7 @@ function stopConversationMonitoring() {
 }
 
 function saveConversationContext() {
-  if (conversationContext.userMessages.length === 0 && conversationContext.aiResponses.length === 0) {
+  if (conversationContext.conversationTurns.length === 0) {
     return;
   }
 
@@ -146,13 +147,11 @@ function saveConversationContext() {
       url: location.href,
       host: location.href,
       tool: 'Claude',
-      userMessageCount: conversationContext.userMessages.length,
-      aiResponseCount: conversationContext.aiResponses.length,
+      turnCount: conversationContext.conversationTurns.length,
       sessionDuration: Date.now() - conversationContext.startTime
     },
     conversation: {
-      userMessages: conversationContext.userMessages,
-      aiResponses: conversationContext.aiResponses,
+      conversationTurns: conversationContext.conversationTurns,
       sessionId: conversationContext.sessionId,
       startTime: conversationContext.startTime,
       endTime: Date.now()
@@ -168,13 +167,14 @@ function saveConversationContext() {
   }, (res) => {
     console.log('[Velto] 📥 Response from background:', res);
     if (res?.ok) {
-      console.log('[Velto] ✅ Conversation context saved successfully:', res);
+      console.log('[Velto] ✅ Conversation context saved:', res);
       // Reset conversation context
       conversationContext = {
-        userMessages: [],
-        aiResponses: [],
+        conversationTurns: [],
         sessionId: Date.now().toString(36),
-        startTime: Date.now()
+        startTime: Date.now(),
+        currentPrompt: '',
+        waitingForResponse: false
       };
     } else {
       console.warn('[Velto] ❌ Failed to save conversation context:', res);
@@ -185,19 +185,16 @@ function saveConversationContext() {
 function buildConversationContent() {
   let content = '';
   
-  // Add user messages
-  if (conversationContext.userMessages.length > 0) {
-    content += '## User Messages\n\n';
-    conversationContext.userMessages.forEach((msg, index) => {
-      content += `**Message ${index + 1}** (${new Date(msg.timestamp).toLocaleTimeString()}):\n${msg.content}\n\n`;
-    });
-  }
-  
-  // Add AI responses
-  if (conversationContext.aiResponses.length > 0) {
-    content += '## AI Responses\n\n';
-    conversationContext.aiResponses.forEach((resp, index) => {
-      content += `**Response ${index + 1}** (${new Date(resp.timestamp).toLocaleTimeString()}):\n${resp.content}\n\n`;
+  // Build structured conversation with prompt-response pairs
+  if (conversationContext.conversationTurns.length > 0) {
+    content += '# Claude Conversation\n\n';
+    
+    conversationContext.conversationTurns.forEach((turn, index) => {
+      content += `## Turn ${index + 1}\n\n`;
+      content += `**User Prompt:**\n${turn.prompt}\n\n`;
+      content += `**AI Response:**\n${turn.response}\n\n`;
+      content += `**Timestamp:** ${new Date(turn.timestamp).toLocaleString()}\n\n`;
+      content += `---\n\n`; // Separator between turns
     });
   }
   
@@ -254,16 +251,19 @@ function setupInputListener(inputElement) {
   const onKeydown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       const message = getValue() || '';
-      if (message.trim() && message !== lastUserMessage) {
-        lastUserMessage = message.trim();
-        console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
+      if (message.trim()) {
+        console.log('[Velto] 👤 USER INPUT:', message.trim());
         
-        // Add to conversation context
-        conversationContext.userMessages.push({
-          content: lastUserMessage,
-          timestamp: Date.now(),
-          type: 'user_input'
+        // Add to conversation context - always add new prompts
+        conversationContext.conversationTurns.push({
+          prompt: message.trim(),
+          response: '', // Will be filled by AI response observer
+          timestamp: Date.now()
         });
+        
+        // Update current prompt for reference
+        conversationContext.currentPrompt = message.trim();
+        console.log('[Velto] ✅ Added prompt to conversation. Total turns:', conversationContext.conversationTurns.length);
       }
     }
   };
@@ -275,15 +275,15 @@ function setupInputListener(inputElement) {
   if (form) {
     const onFormSubmit = () => {
       const message = getValue() || '';
-      if (message.trim() && message !== lastUserMessage) {
-        lastUserMessage = message.trim();
-        console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
+      if (message.trim() && message !== conversationContext.currentPrompt) {
+        conversationContext.currentPrompt = message.trim();
+        console.log('[Velto] 👤 USER INPUT:', conversationContext.currentPrompt);
         
         // Add to conversation context
-        conversationContext.userMessages.push({
-          content: lastUserMessage,
-          timestamp: Date.now(),
-          type: 'form_submit'
+        conversationContext.conversationTurns.push({
+          prompt: conversationContext.currentPrompt,
+          response: '', // Will be filled by AI response observer
+          timestamp: Date.now()
         });
       }
     };
@@ -298,15 +298,15 @@ function setupInputListener(inputElement) {
     const onSendClick = () => {
       setTimeout(() => {
         const message = getValue() || '';
-        if (message.trim() && message !== lastUserMessage) {
-          lastUserMessage = message.trim();
-          console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
+        if (message.trim() && message !== conversationContext.currentPrompt) {
+          conversationContext.currentPrompt = message.trim();
+          console.log('[Velto] 👤 USER INPUT:', conversationContext.currentPrompt);
           
           // Add to conversation context
-          conversationContext.userMessages.push({
-            content: lastUserMessage,
-            timestamp: Date.now(),
-            type: 'button_click'
+          conversationContext.conversationTurns.push({
+            prompt: conversationContext.currentPrompt,
+            response: '', // Will be filled by AI response observer
+            timestamp: Date.now()
           });
         }
       }, 100);
@@ -346,13 +346,30 @@ function monitorAIResponses() {
                   if (responseText.trim()) {
                     console.log('[Velto] 🤖 CLAUDE RESPONSE:', responseText.trim());
                     
-                    // Add to conversation context
-                    conversationContext.aiResponses.push({
-                      content: responseText.trim(),
-                      timestamp: Date.now(),
-                      type: 'ai_response',
-                      element: responseElement
-                    });
+                    // Map response to the latest prompt
+                    if (conversationContext.conversationTurns.length > 0) {
+                      const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
+                      if (latestTurn && !latestTurn.response) {
+                        latestTurn.response = responseText.trim();
+                        console.log('[Velto] ✅ Mapped response to prompt:', latestTurn.prompt.substring(0, 50) + '...');
+                      } else {
+                        // If no prompt found, create a new turn with empty prompt
+                        conversationContext.conversationTurns.push({
+                          prompt: '[Previous conversation]',
+                          response: responseText.trim(),
+                          timestamp: Date.now()
+                        });
+                        console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
+                      }
+                    } else {
+                      // If no turns exist yet, create first turn
+                      conversationContext.conversationTurns.push({
+                        prompt: '[Initial conversation]',
+                        response: responseText.trim(),
+                        timestamp: Date.now()
+                      });
+                      console.log('[Velto] 🆕 Created first turn with response');
+                    }
                   }
                 }, 1000);
               }
