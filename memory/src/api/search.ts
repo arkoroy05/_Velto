@@ -182,7 +182,7 @@ router.get('/', extractUserId, async (req, res): Promise<void> => {
   }
 })
 
-// POST /api/v1/search - Advanced search with semantic capabilities
+// POST /api/v1/search - Advanced search with semantic capabilities and context preservation
 router.post('/', extractUserId, async (req, res): Promise<void> => {
   try {
     const validatedData = SearchQuerySchema.parse(req.body)
@@ -224,16 +224,22 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
       .sort({ createdAt: -1 })
       .toArray()
 
-    let results: Array<{ context: Context; relevance: number }> = []
+    let results: Array<{ context: Context; relevance: number; preservationScore: number }> = []
 
     // Perform search based on type
     switch (validatedData.searchType) {
       case 'semantic':
-        results = await getContextProcessor().semanticSearch(
+        const semanticResults = await getContextProcessor().semanticSearch(
           validatedData.query, 
           allContexts, 
           validatedData.limit
         )
+        // Add preservation scores
+        results = semanticResults.map(({ context, relevance }) => ({
+          context,
+          relevance,
+          preservationScore: calculateContextPreservationScore(context)
+        }))
         break
         
       case 'rag':
@@ -243,7 +249,11 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
           allContexts, 
           validatedData.limit
         )
-        results = ragResults
+        results = ragResults.map(({ context, relevance }) => ({
+          context,
+          relevance,
+          preservationScore: calculateContextPreservationScore(context)
+        }))
         
         // Generate RAG response
         const ragResponse = await getContextProcessor().generateRAGResponse(
@@ -255,7 +265,7 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
         // Add RAG response to results
         res.json({
           success: true,
-          data: results.map(({ context, relevance }) => ({
+          data: results.map(({ context, relevance, preservationScore }) => ({
             id: context._id?.toString(),
             title: context.title,
             content: context.content,
@@ -264,9 +274,16 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
             projectId: context.projectId?.toString(),
             createdAt: context.createdAt,
             updatedAt: context.updatedAt,
-            relevance: relevance
+            relevance: relevance,
+            preservationScore: preservationScore,
+            aiAnalysis: context.aiAnalysis
           })),
           ragResponse,
+          preservationMetrics: {
+            averagePreservation: results.reduce((sum, r) => sum + r.preservationScore, 0) / results.length,
+            highPreservationCount: results.filter(r => r.preservationScore > 0.8).length,
+            totalResults: results.length
+          },
           pagination: {
             page: Math.floor(validatedData.offset / validatedData.limit) + 1,
             limit: validatedData.limit,
@@ -280,7 +297,7 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
         const textResults = allContexts.filter(ctx => 
           ctx.title?.toLowerCase().includes(validatedData.query.toLowerCase()) ||
           ctx.content?.toLowerCase().includes(validatedData.query.toLowerCase())
-        ).map(ctx => ({ context: ctx, relevance: 0.8 }))
+        ).map(ctx => ({ context: ctx, relevance: 0.8, preservationScore: calculateContextPreservationScore(ctx) }))
         
         const hybridSemanticResults = await getContextProcessor().semanticSearch(
           validatedData.query, 
@@ -289,7 +306,11 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
         )
         
         // Merge and deduplicate results
-        const allResults = [...textResults, ...hybridSemanticResults]
+        const allResults = [...textResults, ...hybridSemanticResults.map(r => ({
+          context: r.context,
+          relevance: r.relevance,
+          preservationScore: calculateContextPreservationScore(r.context)
+        }))]
         const seenIds = new Set()
         results = allResults.filter(({ context }) => {
           const id = context._id?.toString()
@@ -303,7 +324,7 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
         results = allContexts.filter(ctx => 
           ctx.title?.toLowerCase().includes(validatedData.query.toLowerCase()) ||
           ctx.content?.toLowerCase().includes(validatedData.query.toLowerCase())
-        ).map(ctx => ({ context: ctx, relevance: 0.8 }))
+        ).map(ctx => ({ context: ctx, relevance: 0.8, preservationScore: calculateContextPreservationScore(ctx) }))
         break
     }
 
@@ -312,7 +333,7 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
 
     const response: APIResponse = {
       success: true,
-      data: paginatedResults.map(({ context, relevance }) => ({
+      data: paginatedResults.map(({ context, relevance, preservationScore }) => ({
         id: context._id?.toString(),
         title: context.title,
         content: context.content,
@@ -321,8 +342,15 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
         projectId: context.projectId?.toString(),
         createdAt: context.createdAt,
         updatedAt: context.updatedAt,
-        relevance: relevance
+        relevance: relevance,
+        preservationScore: preservationScore,
+        aiAnalysis: context.aiAnalysis
       })),
+      preservationMetrics: {
+        averagePreservation: results.reduce((sum, r) => sum + r.preservationScore, 0) / results.length,
+        highPreservationCount: results.filter(r => r.preservationScore > 0.8).length,
+        totalResults: results.length
+      },
       pagination: {
         page: Math.floor(validatedData.offset / validatedData.limit) + 1,
         limit: validatedData.limit,
@@ -498,3 +526,48 @@ router.get('/filters', extractUserId, async (req, res): Promise<void> => {
 })
 
 export default router
+
+// Helper function to calculate context preservation score
+function calculateContextPreservationScore(context: Context): number {
+  let score = 0
+  let factors = 0
+  
+  // Content completeness (30%)
+  if (context.content && context.content.length > 0) {
+    score += 0.3
+    factors++
+  }
+  
+  // AI analysis completeness (25%)
+  if (context.aiAnalysis) {
+    const analysis = context.aiAnalysis
+    let analysisScore = 0
+    
+    if (analysis.summary) analysisScore += 0.2
+    if (analysis.keywords && analysis.keywords.length > 0) analysisScore += 0.2
+    if (analysis.breakdown) analysisScore += 0.2
+    if (analysis.relationships) analysisScore += 0.2
+    if (analysis.confidence) analysisScore += 0.2
+    
+    score += (analysisScore / 5) * 0.25
+    factors++
+  }
+  
+  // Embeddings presence (20%)
+  if (context.embeddings && context.embeddings.length > 0) {
+    score += 0.2
+    factors++
+  }
+  
+  // Metadata completeness (15%)
+  if (context.tags && context.tags.length > 0) score += 0.075
+  if (context.source) score += 0.075
+  factors++
+  
+  // Structure information (10%)
+  if (context.projectId) score += 0.05
+  if (context.parentContextId || context.childContextIds?.length > 0) score += 0.05
+  factors++
+  
+  return factors > 0 ? score : 0
+}

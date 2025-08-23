@@ -88,21 +88,32 @@ export class ContextGraphService {
         
         if (!context1 || !context2) continue
         
-        // Calculate similarity score
-        const similarity = this.calculateSimilarity(context1, context2)
+        // Calculate comprehensive similarity score
+        const similarity = await this.calculateComprehensiveSimilarity(context1, context2)
         
-        if (similarity > 0.3) { // Threshold for creating edges
+        if (similarity > 0.2) { // Lower threshold for more connections
           const edgeIdStr = `${context1._id}-${context2._id}`
           const reverseEdgeIdStr = `${context2._id}-${context1._id}`
           
           if (!edgeId.has(edgeIdStr) && !edgeId.has(reverseEdgeIdStr)) {
+            const edgeType = this.determineAdvancedEdgeType(context1, context2, similarity)
+            
             edges.push({
               id: edgeIdStr,
               source: context1._id!.toString(),
               target: context2._id!.toString(),
-              type: this.determineEdgeType(context1, context2),
+              type: edgeType,
               weight: similarity,
-              label: `${Math.round(similarity * 100)}%`
+              label: `${Math.round(similarity * 100)}%`,
+              metadata: {
+                similarityType: this.getSimilarityType(similarity),
+                relationshipStrength: this.getRelationshipStrength(similarity),
+                commonTopics: this.findCommonTopics(context1, context2),
+                temporalProximity: this.calculateTemporalProximity(context1, context2),
+                semanticOverlap: similarity,
+                dependencyDepth: this.calculateDependencyDepth(context1, context2),
+                relationshipConfidence: similarity
+              }
             })
             edgeId.set(edgeIdStr, true)
           }
@@ -114,54 +125,293 @@ export class ContextGraphService {
   }
 
   /**
-   * Calculate similarity between two contexts
+   * Calculate comprehensive similarity between two contexts
    */
-  private calculateSimilarity(context1: Context, context2: Context): number {
-    let score = 0
+  private async calculateComprehensiveSimilarity(context1: Context, context2: Context): Promise<number> {
+    let totalScore = 0
+    let maxPossibleScore = 0
     
-    // Tag similarity
-    const commonTags = context1.tags.filter(tag => context2.tags.includes(tag))
-    if (commonTags.length > 0) {
-      score += (commonTags.length / Math.max(context1.tags.length, context2.tags.length)) * 0.4
+    // 1. Embedding similarity (40% weight)
+    if (context1.embeddings && context2.embeddings && context1.embeddings.length > 0) {
+      const embeddingSimilarity = this.calculateCosineSimilarity(context1.embeddings, context2.embeddings)
+      totalScore += embeddingSimilarity * 0.4
+      maxPossibleScore += 0.4
     }
     
-    // Type similarity
-    if (context1.type === context2.type) {
-      score += 0.2
-    }
+    // 2. Tag similarity (20% weight)
+    const tagSimilarity = this.calculateTagSimilarity(context1, context2)
+    totalScore += tagSimilarity * 0.2
+    maxPossibleScore += 0.2
     
-    // Content similarity (simple keyword matching)
-    const words1 = context1.content.toLowerCase().split(/\s+/)
-    const words2 = context2.content.toLowerCase().split(/\s+/)
-    const commonWords = words1.filter(word => words2.includes(word))
-    if (commonWords.length > 0) {
-      score += (commonWords.length / Math.max(words1.length, words2.length)) * 0.4
-    }
+    // 3. Type similarity (10% weight)
+    const typeSimilarity = context1.type === context2.type ? 1 : 0
+    totalScore += typeSimilarity * 0.1
+    maxPossibleScore += 0.1
     
-    return Math.min(score, 1.0)
+    // 4. Content similarity (15% weight)
+    const contentSimilarity = this.calculateContentSimilarity(context1, context2)
+    totalScore += contentSimilarity * 0.15
+    maxPossibleScore += 0.15
+    
+    // 5. AI analysis similarity (15% weight)
+    const aiSimilarity = this.calculateAIAnalysisSimilarity(context1, context2)
+    totalScore += aiSimilarity * 0.15
+    maxPossibleScore += 0.15
+    
+    return maxPossibleScore > 0 ? totalScore / maxPossibleScore : 0
   }
 
   /**
-   * Determine the type of relationship between contexts
+   * Calculate cosine similarity between two embedding vectors
    */
-  private determineEdgeType(context1: Context, context2: Context): GraphEdge['type'] {
-    if (context1.type === context2.type) {
-      return 'similar'
+  private calculateCosineSimilarity(vec1: number[], vec2: number[]): number {
+    if (vec1.length !== vec2.length) return 0
+    
+    let dotProduct = 0
+    let norm1 = 0
+    let norm2 = 0
+    
+    for (let i = 0; i < vec1.length; i++) {
+      dotProduct += (vec1[i] || 0) * (vec2[i] || 0)
+      norm1 += (vec1[i] || 0) * (vec1[i] || 0)
+      norm2 += (vec2[i] || 0) * (vec2[i] || 0)
     }
     
-    if (context1.type === 'code' && context2.type === 'documentation') {
-      return 'implements'
+    if (norm1 === 0 || norm2 === 0) return 0
+    
+    return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2))
+  }
+
+  /**
+   * Calculate tag similarity
+   */
+  private calculateTagSimilarity(context1: Context, context2: Context): number {
+    const tags1 = context1.tags || []
+    const tags2 = context2.tags || []
+    
+    if (tags1.length === 0 && tags2.length === 0) return 1
+    if (tags1.length === 0 || tags2.length === 0) return 0
+    
+    const commonTags = tags1.filter(tag => tags2.includes(tag))
+    const unionTags = [...new Set([...tags1, ...tags2])]
+    
+    return commonTags.length / unionTags.length
+  }
+
+  /**
+   * Calculate content similarity using keyword matching
+   */
+  private calculateContentSimilarity(context1: Context, context2: Context): number {
+    const content1 = (context1.content || '').toLowerCase()
+    const content2 = (context2.content || '').toLowerCase()
+    
+    // Extract meaningful words (3+ characters, exclude common words)
+    const stopWords = ['the', 'and', 'for', 'with', 'this', 'that', 'have', 'will', 'from', 'they']
+    const words1 = content1.split(/\s+/).filter(word => word.length > 2 && !stopWords.includes(word))
+    const words2 = content2.split(/\s+/).filter(word => word.length > 2 && !stopWords.includes(word))
+    
+    if (words1.length === 0 && words2.length === 0) return 1
+    if (words1.length === 0 || words2.length === 0) return 0
+    
+    const commonWords = words1.filter(word => words2.includes(word))
+    const unionWords = [...new Set([...words1, ...words2])]
+    
+    return commonWords.length / unionWords.length
+  }
+
+  /**
+   * Calculate AI analysis similarity
+   */
+  private calculateAIAnalysisSimilarity(context1: Context, context2: Context): number {
+    const analysis1 = context1.aiAnalysis
+    const analysis2 = context2.aiAnalysis
+    
+    if (!analysis1 || !analysis2) return 0
+    
+    let similarity = 0
+    let factors = 0
+    
+    // Category similarity
+    if (analysis1.categories && analysis2.categories) {
+      const commonCategories = analysis1.categories.filter(cat => analysis2.categories.includes(cat))
+      const unionCategories = [...new Set([...analysis1.categories, ...analysis2.categories])]
+      similarity += commonCategories.length / unionCategories.length
+      factors++
     }
     
-    if (context1.type === 'task' && context2.type === 'code') {
-      return 'depends_on'
+    // Keyword similarity
+    if (analysis1.keywords && analysis2.keywords) {
+      const commonKeywords = analysis1.keywords.filter(keyword => analysis2.keywords.includes(keyword))
+      const unionKeywords = [...new Set([...analysis1.keywords, ...analysis2.keywords])]
+      similarity += commonKeywords.length / unionKeywords.length
+      factors++
     }
     
-    if (context1.type === 'meeting' && context2.type === 'task') {
-      return 'references'
+    // Main topics similarity
+    if (analysis1.breakdown?.mainTopics && analysis2.breakdown?.mainTopics) {
+      const commonTopics = analysis1.breakdown.mainTopics.filter(topic => 
+        analysis2.breakdown?.mainTopics?.includes(topic)
+      )
+      const unionTopics = [...new Set([...analysis1.breakdown.mainTopics, ...(analysis2.breakdown?.mainTopics || [])])]
+      similarity += commonTopics.length / unionTopics.length
+      factors++
     }
     
+    return factors > 0 ? similarity / factors : 0
+  }
+
+  /**
+   * Determine advanced edge type based on context analysis
+   */
+  private determineAdvancedEdgeType(context1: Context, context2: Context, similarity: number): GraphEdge['type'] {
+    // High similarity indicates similar contexts
+    if (similarity > 0.7) return 'similar'
+    
+    // Check for implementation relationships
+    if (this.hasImplementationRelationship(context1, context2)) return 'implements'
+    
+    // Check for dependency relationships
+    if (this.hasDependencyRelationship(context1, context2)) return 'depends_on'
+    
+    // Check for reference relationships
+    if (this.hasReferenceRelationship(context1, context2)) return 'references'
+    
+    // Default to related
     return 'related'
+  }
+
+  /**
+   * Check for implementation relationships
+   */
+  private hasImplementationRelationship(context1: Context, context2: Context): boolean {
+    const analysis1 = context1.aiAnalysis
+    const analysis2 = context2.aiAnalysis
+    
+    if (!analysis1 || !analysis2) return false
+    
+    // Check if one context implements concepts from another
+    const topics1 = analysis1.breakdown?.mainTopics || []
+    const topics2 = analysis2.breakdown?.mainTopics || []
+    
+    return topics1.some(topic1 => 
+      topics2.some(topic2 => 
+        topic2.toLowerCase().includes('implement') || 
+        topic2.toLowerCase().includes('build') ||
+        topic2.toLowerCase().includes('create') ||
+        topic1.toLowerCase().includes('implement') ||
+        topic1.toLowerCase().includes('build') ||
+        topic1.toLowerCase().includes('create')
+      )
+    )
+  }
+
+  /**
+   * Check for dependency relationships
+   */
+  private hasDependencyRelationship(context1: Context, context2: Context): boolean {
+    const analysis1 = context1.aiAnalysis
+    const analysis2 = context2.aiAnalysis
+    
+    if (!analysis1 || !analysis2) return false
+    
+    // Check if one context depends on concepts from another
+    const dependsOn1 = analysis1.relationships?.dependsOn || []
+    const dependsOn2 = analysis2.relationships?.dependsOn || []
+    
+    return dependsOn1.length > 0 || dependsOn2.length > 0
+  }
+
+  /**
+   * Check for reference relationships
+   */
+  private hasReferenceRelationship(context1: Context, context2: Context): boolean {
+    const analysis1 = context1.aiAnalysis
+    const analysis2 = context2.aiAnalysis
+    
+    if (!analysis1 || !analysis2) return false
+    
+    // Check if contexts reference each other
+    const references1 = analysis1.relationships?.references || []
+    const references2 = analysis2.relationships?.references || []
+    
+    return references1.length > 0 || references2.length > 0
+  }
+
+  /**
+   * Get similarity type classification
+   */
+  private getSimilarityType(similarity: number): 'very_high' | 'high' | 'medium' | 'low' | 'very_low' {
+    if (similarity > 0.8) return 'very_high'
+    if (similarity > 0.6) return 'high'
+    if (similarity > 0.4) return 'medium'
+    if (similarity > 0.2) return 'low'
+    return 'very_low'
+  }
+
+  /**
+   * Get relationship strength classification
+   */
+  private getRelationshipStrength(similarity: number): 'strong' | 'moderate' | 'weak' {
+    if (similarity > 0.8) return 'strong'
+    if (similarity > 0.5) return 'moderate'
+    return 'weak'
+  }
+
+  /**
+   * Find common topics between contexts
+   */
+  private findCommonTopics(context1: Context, context2: Context): string[] {
+    const topics1 = context1.aiAnalysis?.breakdown?.mainTopics || []
+    const topics2 = context2.aiAnalysis?.breakdown?.mainTopics || []
+    
+    return topics1.filter(topic => topics2.includes(topic))
+  }
+
+  /**
+   * Calculate temporal proximity between contexts
+   */
+  private calculateTemporalProximity(context1: Context, context2: Context): number {
+    const time1 = context1.createdAt?.getTime() || 0
+    const time2 = context2.createdAt?.getTime() || 0
+    
+    if (time1 === 0 || time2 === 0) return 0
+    
+    const timeDiff = Math.abs(time1 - time2)
+    const maxDiff = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
+    
+    return Math.max(0, 1 - (timeDiff / maxDiff))
+  }
+
+  /**
+   * Calculate dependency depth between contexts
+   */
+  private calculateDependencyDepth(context1: Context, context2: Context): number {
+    const analysis1 = context1.aiAnalysis
+    const analysis2 = context2.aiAnalysis
+    
+    if (!analysis1 || !analysis2) return 0
+    
+    let depth = 0
+    
+    // Check if one context depends on the other
+    const dependsOn1 = analysis1.relationships?.dependsOn || []
+    const dependsOn2 = analysis2.relationships?.dependsOn || []
+    
+    if (dependsOn1.length > 0 || dependsOn2.length > 0) {
+      depth += 0.5
+    }
+    
+    // Check for implementation relationships
+    if (this.hasImplementationRelationship(context1, context2)) {
+      depth += 0.3
+    }
+    
+    // Check for reference relationships
+    if (this.hasReferenceRelationship(context1, context2)) {
+      depth += 0.2
+    }
+    
+    return Math.min(depth, 1.0)
   }
 
   /**

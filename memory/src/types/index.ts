@@ -172,6 +172,15 @@ export interface GraphEdge {
   type: 'related' | 'depends_on' | 'implements' | 'references' | 'similar'
   weight: number
   label?: string
+  metadata?: {
+    similarityType: 'very_high' | 'high' | 'medium' | 'low' | 'very_low'
+    relationshipStrength: 'strong' | 'moderate' | 'weak'
+    commonTopics: string[]
+    temporalProximity: number
+    semanticOverlap: number
+    dependencyDepth: number
+    relationshipConfidence: number
+  }
 }
 
 export interface GraphLayout {
@@ -287,6 +296,11 @@ export interface APIResponse<T = any> {
   error?: string
   message?: string
   pagination?: Pagination
+  preservationMetrics?: {
+    averagePreservation: number
+    highPreservationCount: number
+    totalResults: number
+  }
 }
 
 export interface APIError {

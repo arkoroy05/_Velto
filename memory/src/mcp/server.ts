@@ -354,7 +354,7 @@ class VeltoMCPServer {
       throw new Error('Context not found')
     }
 
-    const promptVersion = await getContextProcessor().generatePromptVersion(context)
+    const promptVersion = await getContextProcessor().generatePromptVersion(context, "Generate prompt version", [])
 
     return {
       success: true,
