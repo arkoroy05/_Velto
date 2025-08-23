@@ -71,7 +71,7 @@ export default function TuringLanding() {
       </main>
 
       {/* Capabilities Section with Bento Grid */}
-      <section id="why" className="relative z-10 py-20 bg-[#0a0a0a]">
+      <section id="why" className="relative z-10 py-20 bg-[#0a0a0a] font-sans">
         <div className="max-w-[1400px] mx-auto px-[60px]">
           <div className="text-center mb-16">
             <h2 className="text-[48px] font-light leading-[1.1] mb-6 tracking-[-1px]">
@@ -99,8 +99,8 @@ export default function TuringLanding() {
       </section>
       {/* Section intro above features */}
       {/* Testimonials Section */}
-      <section id="features" className="relative z-10 py-20 bg-[#0a0a0a]">
-      <section className="relative z-10 pt-9 pb-1 bg-[#0a0a0a]">
+      <section id="features" className="relative z-10 py-20 bg-[#0a0a0a] font-sans">
+      <section className="relative z-10 pt-9 pb-1 bg-[#0a0a0a] font-sans">
         <div className="max-w-[1400px] mx-auto px-[60px]">
           <div className="text-center mb-1">
             <h2 className="text-[80px] font-light leading-[1.1] mt-10 tracking-[-1px]">
