@@ -9,7 +9,6 @@ import Dashboard from './pages/Dashboard.jsx'
 import ContextDetail from './pages/ContextDetail.jsx'
 import Settings from './pages/Settings.jsx'
 import Login from './pages/Login.jsx'
-import Search from './pages/Search.jsx'
 import Capture from './pages/Capture.jsx'
 import Projets from './pages/Projets.jsx'
 
@@ -23,7 +22,6 @@ const router = createHashRouter([
       { path: 'login', element: <Login /> },
       { path: 'welcome', element: <Welcome /> },
       { path: 'onboarding', element: <Onboarding /> },
-      { path: 'search', element: <Search /> },
       { path: 'capture', element: <Capture /> },
       { path: 'projets', element: <Projets /> },
       { path: 'context/:id', element: <ContextDetail /> },

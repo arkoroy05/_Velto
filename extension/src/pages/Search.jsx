@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
 
-export default function Search() {
+export default function Search({ embedded = false }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -106,21 +106,23 @@ export default function Search() {
   return (
     <section className="space-y-4">
       {/* Backend Status */}
-      <div className="border border-gray-700 rounded-md p-3 bg-card/60">
-        <div className="flex items-center gap-2 mb-2">
-          <div className={`w-2 h-2 rounded-full ${
-            backendStatus === 'connected' ? 'bg-green-500' : 
-            backendStatus === 'unknown' ? 'bg-gray-500' : 'bg-red-500'
-          }`} />
-          <span className={`text-xs ${
-            backendStatus === 'connected' ? 'text-green-400' : 
-            backendStatus === 'unknown' ? 'text-gray-400' : 'text-red-400'
-          }`}>
-            {backendStatus === 'connected' ? 'Backend Connected' : 
-             backendStatus === 'unknown' ? 'Checking...' : 'Backend Disconnected'}
-          </span>
+      {!embedded && (
+        <div className="border border-gray-700 rounded-md p-3 bg-card/60">
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`w-2 h-2 rounded-full ${
+              backendStatus === 'connected' ? 'bg-green-500' : 
+              backendStatus === 'unknown' ? 'bg-gray-500' : 'bg-red-500'
+            }`} />
+            <span className={`text-xs ${
+              backendStatus === 'connected' ? 'text-green-400' : 
+              backendStatus === 'unknown' ? 'text-gray-400' : 'text-red-400'
+            }`}>
+              {backendStatus === 'connected' ? 'Backend Connected' : 
+               backendStatus === 'unknown' ? 'Checking...' : 'Backend Disconnected'}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Search Form */}
       <div className="border border-gray-700 rounded-md p-4 bg-card/60">

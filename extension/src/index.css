@@ -106,6 +106,15 @@ button:focus-visible {
   overflow: hidden;
 }
 
+/* Utility: hide scrollbar but keep scroll */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;            /* Chrome/Safari/WebKit */
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -143,4 +152,13 @@ body::-webkit-scrollbar {
 .velto-brand {
   font-family: 'Playfair Display', 'Edu AU VIC WA NT Hand', serif;
   font-weight: 724;
+}
+
+/* Bottom nav: force white labels/icons */
+.bottom-nav a {
+  color: #ffffff !important;
+}
+.bottom-nav a:hover,
+.bottom-nav a:focus {
+  color: #ffffff !important;
 }

@@ -2,16 +2,14 @@ import { useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import grad from './assets/grad.jpg'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faChartColumn, faMagnifyingGlass, faCamera, faFolder, faGear } from '@fortawesome/free-solid-svg-icons'
+import { faChartColumn, faCamera, faFolder, faGear } from '@fortawesome/free-solid-svg-icons'
 
 function BottomNav() {
   const { pathname } = useLocation()
   const Item = ({ to, label, icon }) => (
     <Link
       to={to}
-      className={`flex-1 flex flex-col items-center justify-center py-2 text-xs ${
-        pathname === to ? 'text-white' : 'text-gray-300 hover:text-white'
-      }`}
+      className={`flex-1 flex flex-col items-center justify-center py-2 text-xs text-white`}
       aria-current={pathname === to ? 'page' : undefined}
     >
       <div aria-hidden className="text-base"><FontAwesomeIcon icon={icon} /></div>
@@ -19,9 +17,8 @@ function BottomNav() {
     </Link>
   )
   return (
-    <nav className="fixed bottom-0 left-0 right-0 w-[380px] mx-auto border-t border-gray-700 bg-[#1a1f3a] flex">
+    <nav className="bottom-nav fixed bottom-0 left-0 right-0 w-[380px] mx-auto border-t border-gray-700 bg-[#1a1f3a] flex">
       <Item to="/" label="Dashboard" icon={faChartColumn} />
-      <Item to="/search" label="Search" icon={faMagnifyingGlass} />
       <Item to="/capture" label="Capture" icon={faCamera} />
       <Item to="/projets" label="Projects" icon={faFolder} />
     </nav>

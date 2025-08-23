@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faCamera, faMagnifyingGlass, faRocket } from '@fortawesome/free-solid-svg-icons'
+import { faCamera, faRocket, faFolder } from '@fortawesome/free-solid-svg-icons'
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -172,12 +172,12 @@ export default function Dashboard() {
             <span className="text-gray-400 text-xs">New context</span>
           </Link>
           <Link 
-            to="/search" 
+            to="/projets" 
             className="flex flex-col items-center p-3 bg-gray-800/50 rounded-md hover:bg-gray-800/70 transition-colors"
           >
-            <div className="text-2xl mb-2" aria-hidden><FontAwesomeIcon icon={faMagnifyingGlass} /></div>
-            <span className="text-white text-sm">Search</span>
-            <span className="text-gray-400 text-xs">Find contexts</span>
+            <div className="text-2xl mb-2" aria-hidden><FontAwesomeIcon icon={faFolder} /></div>
+            <span className="text-white text-sm">Projects</span>
+            <span className="text-gray-400 text-xs">Manage & search</span>
           </Link>
         </div>
       </div>

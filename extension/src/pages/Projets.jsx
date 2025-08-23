@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Search from './Search.jsx'
 
 export default function Projets() {
   const [projects, setProjects] = useState([])
@@ -269,6 +270,11 @@ export default function Projets() {
         </div>
       </div>
 
+      {/* Embedded Search */}
+      <div className="border border-gray-700 rounded-md p-0 bg-transparent">
+        <Search embedded />
+      </div>
+
       {error && (
         <div className="border border-red-500 rounded-md p-3 bg-red-500/10 text-red-400 text-sm">
           {error}
@@ -326,7 +332,7 @@ export default function Projets() {
         ) : projects.length === 0 ? (
           <div className="text-center py-6 text-gray-400 text-sm">No projects yet. Create your first project above.</div>
         ) : (
-          <div className="space-y-2 max-h-[250px] overflow-auto pr-1">
+          <div className="space-y-2 max-h-[250px] overflow-auto pr-1 no-scrollbar">
             {projects.map((p) => (
               <div key={p.id} className="p-3 bg-gray-800/50 rounded border border-gray-700">
                 <div className="flex items-center justify-between">
