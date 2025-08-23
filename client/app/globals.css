@@ -137,3 +137,22 @@
 @utility animate-rainbow {
   animation: rainbow var(--speed, 2s) infinite linear;
 }
+
+/* StarBorder animations (Tailwind v4 custom utilities) */
+@keyframes star-movement-bottom {
+  0% { transform: translate(0%, 0%); opacity: 1; }
+  100% { transform: translate(-100%, 0%); opacity: 0; }
+}
+
+@keyframes star-movement-top {
+  0% { transform: translate(0%, 0%); opacity: 1; }
+  100% { transform: translate(100%, 0%); opacity: 0; }
+}
+
+@utility animate-star-movement-bottom {
+  animation: star-movement-bottom linear infinite alternate;
+}
+
+@utility animate-star-movement-top {
+  animation: star-movement-top linear infinite alternate;
+}

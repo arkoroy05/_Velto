@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react"
 import { Home, Cpu, Shield, FileText, Users } from "lucide-react"
 // Import the BentoGrid component
 import { BentoGrid1 } from "@/components/ui/bento-grid"
+import { StarBorder } from "@/components/ui/star-border"
 import Features from "@/components/ui/features-new"
 import FooterSection from "@/components/ui/footer"
 import { NavBar } from "@/components/ui/tubelight-navbar"
@@ -10,6 +11,7 @@ import AnimatedGradientBackground from "@/components/ui/background";
 import { AnimatePresence, motion, useInView, Variants } from "framer-motion";
 import { useRef } from "react";
 import { useRouter } from "next/navigation"
+import { Testimonials } from "@/components/ui/demo";
 
 const navItems = [
   { name: "Home", url: "#home", icon: Home },
@@ -49,20 +51,19 @@ export default function TuringLanding() {
         <div className="content-wrapper max-w-[1400px] mx-auto px-[60px] flex justify-between items-end relative z-[2]">
           {/* Left Content */}
           <div className="max-w-[800px]">
-            <h1 className="text-[80px] font-light leading-[1.1] mb-8 tracking-[-2px]">
-              AI tools deserve better <br /> Give them Velto.
+            <h1 className="text-[80px] font-light leading-[1.1] mb-6 tracking-[-2px]">
+              AI deserves better <br /> Give it Velto.
             </h1>
             <p className="text-lg leading-relaxed text-[#b8b8b8] mb-12 font-normal">
-              Stop re-explaining, re-pasting, and re-debugging across AI tools. One brain across all your AI workflows.
+              Stop re-explaining, re-pasting, and re-debugging across AI tools.
             </p>
             <div className="flex gap-5 items-center">
-              <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2.5 bg-[#0084ff] text-white py-3.5 px-7 rounded-md text-base font-medium hover:bg-[#0066cc] hover:translate-x-0.5 transition-all duration-200">
-                Get Started
-                <ArrowRight className="w-5 h-5" />
-              </button>
-              <button className="bg-transparent text-[#b8b8b8] py-3.5 px-7 text-base font-medium hover:text-white transition-colors duration-200">
-                 Read the whitepaper
-              </button>
+              <StarBorder as="button" onClick={() => router.push("/dashboard")} className="cursor-pointer select-none">
+                <span className="inline-flex items-center gap-2.5">
+                  Get Started
+                  <ArrowRight className="w-5 h-5" />
+                </span>
+              </StarBorder>
             </div>
           </div>
 
@@ -96,10 +97,14 @@ export default function TuringLanding() {
           </div>
         </div>
       </section>
+      {/* Testimonials Section */}
       <section id="features" className="relative z-10 py-20 bg-[#0a0a0a]">
         <Features />
+      <Testimonials />
       </section>
       <section id="about" className="relative z-10 py-20 bg-[#0a0a0a] overflow-hidden">
+        {/* Soft top fade to make testimonials-to-footer transition seamless */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#0a0a0a] to-transparent" />
         <AnimatedGradientBackground containerClassName="z-0" />
         <div className="relative z-10">
           <FooterSection />
