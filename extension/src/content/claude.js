@@ -42,19 +42,19 @@ async function handleCapture() {
     console.log('[Velto] No selection to capture');
     return;
   }
-  chrome.runtime.sendMessage({
-    type: MSG.CONTEXTS_CREATE,
-    payload: {
-      content,
-      title: 'Claude selection',
-      url: location.href,
-      host: location.host,
-      tool: 'Claude',
-    },
-  }, (res) => {
-    if (res?.ok) console.log('[Velto] snippet saved', res);
-    else console.warn('[Velto] failed to save snippet', res);
-  });
+    chrome.runtime.sendMessage({
+      type: MSG.CONTEXTS_CREATE,
+      payload: {
+        content,
+        title: 'Claude selection',
+        url: location.href,
+        host: location.host,
+        tool: 'Claude',
+      },
+    }, (res) => {
+      if (res?.ok) console.log('[Velto] snippet saved', res);
+      else console.warn('[Velto] failed to save snippet', res);
+    });
 }
 
 // Enhanced conversation monitoring for Claude
@@ -70,22 +70,40 @@ let conversationContext = {
 };
 
 function startConversationMonitoring() {
-  if (isMonitoring) return;
-  isMonitoring = true;
-  console.log('[Velto] 🎯 Started monitoring Claude conversations');
+  if (conversationContext.isMonitoring) {
+    console.log('[Velto] 🔄 Conversation monitoring already active');
+    return;
+  }
+
+  console.log('[Velto] 🚀 Starting conversation monitoring...');
   
-  // Reset conversation context
+  // Initialize conversation context
   conversationContext = {
+    isMonitoring: true,
     conversationTurns: [],
-    sessionId: Date.now().toString(36),
-    startTime: Date.now(),
     currentPrompt: '',
-    waitingForResponse: false
+    waitingForResponse: false,
+    startTime: new Date()
   };
 
+  // Fetch all contexts for local fallback search
+  fetchAllContexts();
+
+  // Set up monitoring
+  setupInputMonitoring();
+  setupResponseMonitoring();
+  
+  console.log('[Velto] ✅ Conversation monitoring started');
+}
+
+// Set up input monitoring
+function setupInputMonitoring() {
   // Monitor user input
   monitorUserInput();
-  
+}
+
+// Set up response monitoring
+function setupResponseMonitoring() {
   // Monitor AI responses
   monitorAIResponses();
 }
@@ -112,6 +130,7 @@ function stopConversationMonitoring() {
       if (el._veltoOnCompositionEnd) el.removeEventListener('compositionend', el._veltoOnCompositionEnd);
       if (el._veltoOnKeydown) el.removeEventListener('keydown', el._veltoOnKeydown);
       if (el._veltoTypingTimer) clearTimeout(el._veltoTypingTimer);
+      if (el._veltoContextSearchTimer) clearTimeout(el._veltoContextSearchTimer);
       if (el._veltoForm && el._veltoOnFormSubmit) el._veltoForm.removeEventListener('submit', el._veltoOnFormSubmit);
       if (el._veltoSendButton && el._veltoOnSendClick) el._veltoSendButton.removeEventListener('click', el._veltoOnSendClick);
       delete el.dataset.veltoMonitored;
@@ -119,6 +138,7 @@ function stopConversationMonitoring() {
       delete el._veltoOnCompositionEnd;
       delete el._veltoOnKeydown;
       delete el._veltoTypingTimer;
+      delete el._veltoContextSearchTimer;
       delete el._veltoForm;
       delete el._veltoOnFormSubmit;
       delete el._veltoSendButton;
@@ -236,6 +256,14 @@ function setupInputListener(inputElement) {
     if (message && message.trim() && message.trim() !== inputElement.dataset.veltoLastTyped) {
       inputElement.dataset.veltoLastTyped = message.trim();
       console.log('[Velto] 👤 USER TYPING:', inputElement.dataset.veltoLastTyped);
+      
+      // Search for context suggestions in real-time (debounced)
+      if (message.trim().length > 3) { // Only search if message is longer than 3 characters
+        clearTimeout(inputElement._veltoContextSearchTimer);
+        inputElement._veltoContextSearchTimer = setTimeout(() => {
+          searchContextSuggestions(message.trim());
+        }, 800); // 800ms debounce to avoid too many API calls
+      }
     }
   };
   const onInput = () => {
@@ -267,6 +295,14 @@ function setupInputListener(inputElement) {
         
         // Set a flag to indicate we're waiting for a response
         conversationContext.waitingForResponse = true;
+        
+        // Clear any pending context search
+        if (inputElement._veltoContextSearchTimer) {
+          clearTimeout(inputElement._veltoContextSearchTimer);
+        }
+        
+        // Search for context suggestions
+        searchContextSuggestions(message.trim());
       }
     }
   };
@@ -291,6 +327,17 @@ function setupInputListener(inputElement) {
         // Update current prompt for reference
         conversationContext.currentPrompt = message.trim();
         console.log('[Velto] ✅ Added prompt to conversation (form). Total turns:', conversationContext.conversationTurns.length);
+        
+        // Set a flag to indicate we're waiting for a response
+        conversationContext.waitingForResponse = true;
+        
+        // Clear any pending context search
+        if (inputElement._veltoContextSearchTimer) {
+          clearTimeout(inputElement._veltoContextSearchTimer);
+        }
+        
+        // Search for context suggestions
+        searchContextSuggestions(message.trim());
       }
     };
     inputElement._veltoForm = form;
@@ -317,6 +364,17 @@ function setupInputListener(inputElement) {
           // Update current prompt for reference
           conversationContext.currentPrompt = message.trim();
           console.log('[Velto] ✅ Added prompt to conversation (button). Total turns:', conversationContext.conversationTurns.length);
+          
+          // Set a flag to indicate we're waiting for a response
+          conversationContext.waitingForResponse = true;
+          
+          // Clear any pending context search
+          if (inputElement._veltoContextSearchTimer) {
+            clearTimeout(inputElement._veltoContextSearchTimer);
+          }
+          
+          // Search for context suggestions
+          searchContextSuggestions(message.trim());
         }
       }, 100);
     };
@@ -404,7 +462,7 @@ function monitorAIResponses() {
           // Also check for streaming responses that update incrementally
           if (node.dataset?.isStreaming === 'true' || node.classList?.contains('streaming')) {
             const observer = new MutationObserver(() => {
-              const responseText = node.innerText || node.textContent || '';
+                const responseText = node.innerText || node.textContent || '';
               if (responseText.trim()) {
                 console.log('[Velto] 🤖 CLAUDE RESPONSE (streaming):', responseText.trim());
               }
@@ -443,3 +501,352 @@ console.log('[Velto] 🚀 Auto-starting Claude conversation monitoring...');
 setTimeout(() => {
   startConversationMonitoring();
 }, 2000); // Wait 2 seconds for page to fully load
+
+// Context suggestion functionality with fallback
+let allContexts = []; // Store all contexts locally as fallback
+
+async function searchContextSuggestions(userPrompt) {
+  try {
+    console.log('[Velto] 🔍 Searching for context suggestions for:', userPrompt);
+    
+    // Get selected project
+    const projectSelection = await chrome.storage.local.get(['velto_selected_project']);
+    const projectId = projectSelection?.velto_selected_project || 'inbox';
+    
+    // Try the backend search first
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'CONTEXT_SUGGESTION_REQUEST',
+        payload: {
+          userPrompt: userPrompt,
+          projectId: projectId
+        }
+      });
+      
+      if (response?.ok && response.suggestions && response.suggestions.length > 0) {
+        console.log('[Velto] ✅ Backend search successful:', response.suggestions.length);
+        showContextSuggestionPopup(userPrompt, response.suggestions);
+        return;
+      }
+    } catch (backendError) {
+      console.warn('[Velto] Backend search failed, using fallback:', backendError);
+    }
+    
+    // Fallback: Search through locally stored contexts
+    console.log('[Velto] 🔄 Using fallback search through local contexts');
+    const localSuggestions = await searchLocalContexts(userPrompt, projectId);
+    
+    if (localSuggestions.length > 0) {
+      console.log('[Velto] ✅ Local search found suggestions:', localSuggestions.length);
+      showContextSuggestionPopup(userPrompt, localSuggestions);
+    } else {
+      console.log('[Velto] ℹ️ No context suggestions found');
+    }
+  } catch (error) {
+    console.error('[Velto] ❌ Context suggestion search error:', error);
+  }
+}
+
+// Fallback: Search through locally stored contexts
+async function searchLocalContexts(userPrompt, projectId) {
+  if (allContexts.length === 0) {
+    console.log('[Velto] ℹ️ No local contexts available, fetching from backend...');
+    await fetchAllContexts();
+  }
+  
+  if (allContexts.length === 0) {
+    return [];
+  }
+  
+  // Filter contexts by project if specified
+  let filteredContexts = allContexts;
+  if (projectId && projectId !== 'inbox') {
+    filteredContexts = allContexts.filter(ctx => ctx.projectId === projectId);
+  }
+  
+  // Simple text search through local contexts
+  const query = userPrompt.toLowerCase();
+  const suggestions = filteredContexts
+    .filter(ctx => {
+      const title = (ctx.title || '').toLowerCase();
+      const content = (ctx.content || '').toLowerCase();
+      const tags = (ctx.tags || []).map(tag => tag.toLowerCase());
+      
+      return title.includes(query) || 
+             content.includes(query) || 
+             tags.some(tag => tag.includes(query));
+    })
+    .sort((a, b) => {
+      // Simple relevance scoring
+      const aScore = calculateRelevanceScore(a, query);
+      const bScore = calculateRelevanceScore(b, query);
+      return bScore - aScore;
+    })
+    .slice(0, 5); // Limit to top 5
+  
+  return suggestions;
+}
+
+// Calculate simple relevance score for local search
+function calculateRelevanceScore(context, query) {
+  let score = 0;
+  const title = (context.title || '').toLowerCase();
+  const content = (context.content || '').toLowerCase();
+  const tags = (context.tags || []).map(tag => tag.toLowerCase());
+  
+  // Title matches get highest score
+  if (title.includes(query)) score += 10;
+  
+  // Content matches get medium score
+  if (content.includes(query)) score += 5;
+  
+  // Tag matches get lower score
+  tags.forEach(tag => {
+    if (tag.includes(query)) score += 2;
+  });
+  
+  return score;
+}
+
+// Fetch all contexts from backend for local fallback
+async function fetchAllContexts() {
+  try {
+    console.log('[Velto] 📥 Fetching all contexts for local fallback...');
+    
+    const response = await chrome.runtime.sendMessage({
+      type: 'FETCH_ALL_CONTEXTS',
+      payload: {}
+    });
+    
+    if (response?.ok && response.contexts) {
+      allContexts = response.contexts;
+      console.log(`[Velto] ✅ Fetched ${allContexts.length} contexts for local fallback`);
+    } else {
+      console.warn('[Velto] Failed to fetch contexts for fallback:', response?.error);
+    }
+  } catch (error) {
+    console.error('[Velto] Error fetching contexts for fallback:', error);
+  }
+}
+
+function showContextSuggestionPopup(userPrompt, suggestions) {
+  // Close any existing popup first
+  const existingPopup = document.getElementById('velto-context-popup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+  
+  // Create popup container
+  const popup = document.createElement('div');
+  popup.id = 'velto-context-popup';
+  popup.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 400px;
+    max-height: 600px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    z-index: 999999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+  `;
+  
+  // Create popup content
+  popup.innerHTML = `
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 16px; color: white;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Context Suggestions</h3>
+        <button id="velto-popup-close" style="background: none; border: none; color: white; cursor: pointer; font-size: 18px;">×</button>
+      </div>
+    </div>
+    
+    <div style="padding: 16px; max-height: 500px; overflow-y: auto;">
+      <div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">Your prompt:</p>
+        <p style="margin: 0; font-size: 14px; font-weight: 500; color: #111827;">${userPrompt}</p>
+      </div>
+      
+      <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #111827;">Relevant Contexts:</h4>
+      
+      <div id="velto-suggestions-list" style="space-y: 12px;">
+        ${suggestions.map((context, index) => `
+          <div class="velto-suggestion-item" data-context-id="${context._id || context.id || index}" style="
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+          " onmouseover="this.style.borderColor='#3b82f6'; this.style.backgroundColor='#f0f9ff';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white';">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="flex: 1;">
+                <h5 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 500; color: #111827;">
+                  ${context.title || 'Untitled Context'}
+                </h5>
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; line-height: 1.4;">
+                  ${context.summary || context.content?.substring(0, 100) || 'No summary available'}
+                </p>
+                <div style="display: flex; gap: 6px;">
+                  <span style="font-size: 10px; background: #f3f4f6; color: #6b7280; padding: 2px 6px; border-radius: 4px;">
+                    ${context.type || 'conversation'}
+                  </span>
+                  ${context.source?.type ? `
+                    <span style="font-size: 10px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px;">
+                      ${context.source.type}
+                    </span>
+                  ` : ''}
+                </div>
+              </div>
+              <div style="color: #9ca3af; font-size: 12px;">→</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      
+      <div id="velto-prompt-version" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #111827;">Generated Prompt:</h4>
+        <div id="velto-prompt-content" style="
+          background: #f9fafb;
+          padding: 12px;
+          border-radius: 8px;
+          margin-bottom: 12px;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #111827;
+          white-space: pre-wrap;
+        "></div>
+        
+        <div style="display: flex; gap: 8px;">
+          <button id="velto-insert-btn" style="
+            flex: 1;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+          " onmouseover="this.style.backgroundColor='#2563eb';" onmouseout="this.style.backgroundColor='#3b82f6';">
+            Insert into AI
+          </button>
+          <button id="velto-copy-btn" style="
+            padding: 8px 16px;
+            border: 1px solid #d1d5db;
+            background: white;
+            color: #374151;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+          " onmouseover="this.style.backgroundColor='#f9fafb';" onmouseout="this.style.backgroundColor='white';">
+            Copy
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add popup to page
+  document.body.appendChild(popup);
+  
+  // Add event listeners
+  document.getElementById('velto-popup-close').addEventListener('click', () => {
+    popup.remove();
+  });
+  
+  // Handle suggestion item clicks
+  document.querySelectorAll('.velto-suggestion-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const contextId = item.dataset.contextId;
+      const context = suggestions.find(s => (s._id || s.id) == contextId);
+      
+      if (context) {
+        // Generate prompt version
+        await generatePromptVersion(contextId, userPrompt, popup);
+      }
+    });
+  });
+  
+  // Auto-close after 30 seconds
+  setTimeout(() => {
+    if (popup.parentNode) {
+      popup.remove();
+    }
+  }, 30000);
+}
+
+async function generatePromptVersion(contextId, userPrompt, popup) {
+  try {
+    // Show loading state
+    const promptVersionDiv = document.getElementById('velto-prompt-version');
+    const promptContent = document.getElementById('velto-prompt-content');
+    promptContent.textContent = 'Generating prompt version...';
+    promptVersionDiv.style.display = 'block';
+    
+    // Use chrome.runtime.sendMessage to avoid CORS issues
+    const response = await chrome.runtime.sendMessage({
+      type: 'GENERATE_PROMPT_VERSION',
+      payload: {
+        contextId: contextId,
+        userPrompt: userPrompt
+      }
+    });
+    
+    if (response?.success && response.data?.promptVersion) {
+      const promptVersion = response.data.promptVersion;
+      promptContent.textContent = promptVersion;
+      
+      // Add event listeners for buttons
+      document.getElementById('velto-insert-btn').addEventListener('click', () => {
+        insertPromptIntoAI(promptVersion);
+        popup.remove();
+      });
+      
+      document.getElementById('velto-copy-btn').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(promptVersion);
+          const btn = document.getElementById('velto-copy-btn');
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.textContent = 'Copy';
+          }, 2000);
+        } catch (error) {
+          console.error('Failed to copy to clipboard:', error);
+        }
+      });
+      
+    } else {
+      promptContent.textContent = 'Failed to generate prompt version';
+    }
+  } catch (error) {
+    console.error('Failed to generate prompt version:', error);
+    document.getElementById('velto-prompt-content').textContent = 'Error generating prompt version';
+  }
+}
+
+function insertPromptIntoAI(promptText) {
+  // Find the input field and insert the prompt
+  const inputSelector = '[data-testid="chat-input"], .ProseMirror, [contenteditable="true"]:not([data-testid="chat-output"]), textarea';
+  const inputElement = document.querySelector(inputSelector);
+  
+  if (inputElement) {
+    if (inputElement.tagName === 'TEXTAREA') {
+      inputElement.value = promptText;
+    } else if (inputElement.contentEditable === 'true') {
+      inputElement.textContent = promptText;
+    }
+    
+    // Trigger input event to update the UI
+    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    console.log('[Velto] ✅ Inserted prompt into AI input');
+  } else {
+    console.warn('[Velto] ❌ Could not find AI input field');
+  }
+}

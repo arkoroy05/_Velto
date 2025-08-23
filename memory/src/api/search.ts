@@ -56,6 +56,8 @@ router.get('/', extractUserId, async (req, res): Promise<void> => {
   try {
     const { query, projectId, type, tags, limit = 10, offset = 0 } = req.query
     
+    logger.info(`Search request: query="${query}", userId=${req.userId}, projectId=${projectId}, limit=${limit}`)
+    
     if (!query) {
       res.status(400).json({
         success: false,
@@ -65,6 +67,28 @@ router.get('/', extractUserId, async (req, res): Promise<void> => {
     }
 
     const collection = databaseService.getCollection<Context>('contexts')
+    
+    // Check if collection exists and has data
+    try {
+      const count = await collection.countDocuments({})
+      logger.info(`Collection count: ${count} documents`)
+      
+      if (count === 0) {
+        logger.info('Collection is empty, returning empty results')
+        res.json({
+          success: true,
+          data: [],
+          pagination: {
+            page: 1,
+            limit: Number(limit),
+            total: 0
+          }
+        })
+        return
+      }
+    } catch (countError) {
+      logger.warn('Could not get collection count:', countError)
+    }
     
     // Build filter
     let filter: any = { userId: new ObjectId(req.userId!) }
@@ -82,19 +106,54 @@ router.get('/', extractUserId, async (req, res): Promise<void> => {
       filter.tags = { $in: tagArray }
     }
 
-    // Text search
-    if (query) {
+    logger.info(`Search filter:`, filter)
+
+    let contexts: any[] = []
+    let total = 0
+
+    try {
+      // Try text search first (if text index is available)
       filter.$text = { $search: query as string }
+      logger.info(`Attempting text search with filter:`, filter)
+      
+      contexts = await collection
+        .find(filter)
+        .sort({ score: { $meta: 'textScore' } })
+        .skip(Number(offset))
+        .limit(Number(limit))
+        .toArray()
+      
+      total = await collection.countDocuments(filter)
+      logger.info(`Text search successful: found ${contexts.length} contexts`)
+    } catch (textSearchError) {
+      // Fallback to simple text search if text index fails
+      logger.warn('Text search index failed, falling back to simple search:', textSearchError)
+      
+      // Remove text search filter and use simple regex search
+      delete filter.$text
+      
+      // Simple text search using regex
+      const searchRegex = new RegExp(query as string, 'i')
+      filter.$or = [
+        { title: searchRegex },
+        { content: searchRegex },
+        { tags: { $in: [searchRegex] } }
+      ]
+      
+      logger.info(`Falling back to regex search with filter:`, filter)
+      
+      contexts = await collection
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(Number(offset))
+        .limit(Number(limit))
+        .toArray()
+      
+      total = await collection.countDocuments(filter)
+      logger.info(`Regex search successful: found ${contexts.length} contexts`)
     }
 
-    const contexts = await collection
-      .find(filter)
-      .sort(query ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
-      .skip(Number(offset))
-      .limit(Number(limit))
-      .toArray()
-
-    const total = await collection.countDocuments(filter)
+    logger.info(`Search completed: ${contexts.length} results for query "${query}"`)
 
     res.json({
       success: true,

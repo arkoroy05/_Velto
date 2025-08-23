@@ -321,7 +321,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               } else if (endpoint === 'projects') {
                 result = await apiService.createProject(data)
               } else {
-                throw new Error(`Unknown POST endpoint: ${endpoint}`)
+                throw new Error(`Unsupported method: ${method}`)
               }
               break
               
@@ -336,6 +336,111 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: false, error: error.message })
         }
         return
+      }
+
+      case MSG.CONTEXT_INJECTION_REQUEST: {
+        console.log('[Velto] 🔍 Context injection request:', message.payload);
+        // TODO: Implement context injection logic
+        sendResponse({ ok: true, message: 'Context injection not yet implemented' });
+        return;
+      }
+
+      case MSG.CONTEXT_SUGGESTION_REQUEST: {
+        console.log('[Velto] 🔍 Context suggestion request:', message.payload);
+        try {
+          const { userPrompt, projectId } = message.payload;
+          
+          // Search contexts using the search API
+          const searchResponse = await apiService.searchContexts(userPrompt, {
+            projectId: projectId || 'inbox',
+            limit: 5 // Limit to top 5 most relevant
+          });
+          
+          if (searchResponse.success && searchResponse.data) {
+            // The backend returns data directly as an array of contexts
+            const suggestions = searchResponse.data || [];
+            sendResponse({ 
+              ok: true, 
+              suggestions: suggestions
+            });
+          } else {
+            sendResponse({ 
+              ok: false, 
+              error: 'Failed to search contexts',
+              suggestions: []
+            });
+          }
+        } catch (error) {
+          console.error('[Velto] Context suggestion error:', error);
+          sendResponse({ 
+            ok: false, 
+            error: error.message,
+            suggestions: []
+          });
+        }
+        return;
+      }
+
+      case MSG.GENERATE_PROMPT_VERSION: {
+        console.log('[Velto] 🔍 Generate prompt version request:', message.payload);
+        try {
+          const { contextId, userPrompt } = message.payload;
+          
+          // Call the prompt version API
+          const promptResponse = await apiService.generatePromptVersion(contextId, userPrompt);
+          
+          if (promptResponse.success && promptResponse.data) {
+            sendResponse({ 
+              success: true, 
+              data: {
+                promptVersion: promptResponse.data.promptVersion || promptResponse.data.content || 'No prompt version generated'
+              }
+            });
+          } else {
+            sendResponse({ 
+              success: false, 
+              error: promptResponse.error || 'Failed to generate prompt version'
+            });
+          }
+        } catch (error) {
+          console.error('[Velto] Prompt version generation error:', error);
+          sendResponse({ 
+            success: false, 
+            error: error.message
+          });
+        }
+        return;
+      }
+
+      case 'FETCH_ALL_CONTEXTS': {
+        console.log('[Velto] 📥 Fetch all contexts request for fallback');
+        try {
+          // Fetch all contexts for the user
+          const contextsResponse = await apiService.getContexts({
+            limit: 1000 // Get a large number of contexts for local fallback
+          });
+          
+          if (contextsResponse.success && contextsResponse.data) {
+            sendResponse({ 
+              ok: true, 
+              contexts: contextsResponse.data
+            });
+          } else {
+            sendResponse({ 
+              ok: false, 
+              error: 'Failed to fetch contexts',
+              contexts: []
+            });
+          }
+        } catch (error) {
+          console.error('[Velto] Fetch all contexts error:', error);
+          sendResponse({ 
+            ok: false, 
+            error: error.message,
+            contexts: []
+          });
+        }
+        return;
       }
 
       default:

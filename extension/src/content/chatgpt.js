@@ -277,6 +277,9 @@ function setupInputListener(textarea) {
         
         // Set a flag to indicate we're waiting for a response
         conversationContext.waitingForResponse = true;
+        
+        // Search for context suggestions
+        searchContextSuggestions(message.trim());
       }
     }
   };
@@ -305,6 +308,9 @@ function setupInputListener(textarea) {
           
           // Set a flag to indicate we're waiting for a response
           conversationContext.waitingForResponse = true;
+          
+          // Search for context suggestions
+          searchContextSuggestions(message.trim());
         }
       }, 100);
     };
@@ -334,6 +340,9 @@ function setupInputListener(textarea) {
           
           // Set a flag to indicate we're waiting for a response
           conversationContext.waitingForResponse = true;
+          
+          // Search for context suggestions
+          searchContextSuggestions(message.trim());
         }
       };
       textarea._veltoForm = form;
@@ -442,3 +451,260 @@ console.log('[Velto] 🚀 Auto-starting ChatGPT conversation monitoring...');
 setTimeout(() => {
   startConversationMonitoring();
 }, 2000); // Wait 2 seconds for page to fully load
+
+// Context suggestion functionality
+async function searchContextSuggestions(userPrompt) {
+  try {
+    console.log('[Velto] 🔍 Searching for context suggestions for:', userPrompt);
+    
+    // Get selected project
+    const projectSelection = await chrome.storage.local.get(['velto_selected_project']);
+    const projectId = projectSelection?.velto_selected_project || 'inbox';
+    
+    // Search contexts using the search API
+    const response = await fetch(`https://velto.onrender.com/api/v1/search?q=${encodeURIComponent(userPrompt)}&userId=689e5a217224da39efe7a47f&projectId=${projectId}&limit=5`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-ID': '689e5a217224da39efe7a47f'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const suggestions = data.data?.contexts || data.data || [];
+      
+      if (suggestions.length > 0) {
+        console.log('[Velto] ✅ Found context suggestions:', suggestions.length);
+        showContextSuggestionPopup(userPrompt, suggestions);
+      } else {
+        console.log('[Velto] ℹ️ No context suggestions found');
+      }
+    } else {
+      console.warn('[Velto] ❌ Failed to search contexts:', response.status);
+    }
+  } catch (error) {
+    console.error('[Velto] ❌ Context suggestion search error:', error);
+  }
+}
+
+function showContextSuggestionPopup(userPrompt, suggestions) {
+  // Create popup container
+  const popup = document.createElement('div');
+  popup.id = 'velto-context-popup';
+  popup.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 400px;
+    max-height: 600px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    z-index: 999999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+  `;
+  
+  // Create popup content
+  popup.innerHTML = `
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 16px; color: white;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Context Suggestions</h3>
+        <button id="velto-popup-close" style="background: none; border: none; color: white; cursor: pointer; font-size: 18px;">×</button>
+      </div>
+    </div>
+    
+    <div style="padding: 16px; max-height: 500px; overflow-y: auto;">
+      <div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">Your prompt:</p>
+        <p style="margin: 0; font-size: 14px; font-weight: 500; color: #111827;">${userPrompt}</p>
+      </div>
+      
+      <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #111827;">Relevant Contexts:</h4>
+      
+      <div id="velto-suggestions-list" style="space-y: 12px;">
+        ${suggestions.map((context, index) => `
+          <div class="velto-suggestion-item" data-context-id="${context._id || context.id || index}" style="
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 8px;
+          " onmouseover="this.style.borderColor='#3b82f6'; this.style.backgroundColor='#f0f9ff';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white';">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="flex: 1;">
+                <h5 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 500; color: #111827;">
+                  ${context.title || 'Untitled Context'}
+                </h5>
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; line-height: 1.4;">
+                  ${context.summary || context.content?.substring(0, 100) || 'No summary available'}
+                </p>
+                <div style="display: flex; gap: 6px;">
+                  <span style="font-size: 10px; background: #f3f4f6; color: #6b7280; padding: 2px 6px; border-radius: 4px;">
+                    ${context.type || 'conversation'}
+                  </span>
+                  ${context.source?.type ? `
+                    <span style="font-size: 10px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px;">
+                      ${context.source.type}
+                    </span>
+                  ` : ''}
+                </div>
+              </div>
+              <div style="color: #9ca3af; font-size: 12px;">→</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      
+      <div id="velto-prompt-version" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #111827;">Generated Prompt:</h4>
+        <div id="velto-prompt-content" style="
+          background: #f9fafb;
+          padding: 12px;
+          border-radius: 8px;
+          margin-bottom: 12px;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #111827;
+          white-space: pre-wrap;
+        "></div>
+        
+        <div style="display: flex; gap: 8px;">
+          <button id="velto-insert-btn" style="
+            flex: 1;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+          " onmouseover="this.style.backgroundColor='#2563eb';" onmouseout="this.style.backgroundColor='#3b82f6';">
+            Insert into AI
+          </button>
+          <button id="velto-copy-btn" style="
+            padding: 8px 16px;
+            border: 1px solid #d1d5db;
+            background: white;
+            color: #374151;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+          " onmouseover="this.style.backgroundColor='#f9fafb';" onmouseout="this.style.backgroundColor='white';">
+            Copy
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add popup to page
+  document.body.appendChild(popup);
+  
+  // Add event listeners
+  document.getElementById('velto-popup-close').addEventListener('click', () => {
+    popup.remove();
+  });
+  
+  // Handle suggestion item clicks
+  document.querySelectorAll('.velto-suggestion-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const contextId = item.dataset.contextId;
+      const context = suggestions.find(s => (s._id || s.id) == contextId);
+      
+      if (context) {
+        // Generate prompt version
+        await generatePromptVersion(contextId, userPrompt, popup);
+      }
+    });
+  });
+  
+  // Auto-close after 30 seconds
+  setTimeout(() => {
+    if (popup.parentNode) {
+      popup.remove();
+    }
+  }, 30000);
+}
+
+async function generatePromptVersion(contextId, userPrompt, popup) {
+  try {
+    // Show loading state
+    const promptVersionDiv = document.getElementById('velto-prompt-version');
+    const promptContent = document.getElementById('velto-prompt-content');
+    promptContent.textContent = 'Generating prompt version...';
+    promptVersionDiv.style.display = 'block';
+    
+    // Call the prompt version API
+    const response = await fetch(`https://velto.onrender.com/api/v1/contexts/${contextId}/prompt-version`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-ID': '689e5a217224da39efe7a47f'
+      },
+      body: JSON.stringify({
+        userId: '689e5a217224da39efe7a47f',
+        userPrompt: userPrompt
+      })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const promptVersion = data.data?.promptVersion || data.data?.content || 'No prompt version generated';
+      promptContent.textContent = promptVersion;
+      
+      // Add event listeners for buttons
+      document.getElementById('velto-insert-btn').addEventListener('click', () => {
+        insertPromptIntoAI(promptVersion);
+        popup.remove();
+      });
+      
+      document.getElementById('velto-copy-btn').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(promptVersion);
+          const btn = document.getElementById('velto-copy-btn');
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.textContent = 'Copy';
+          }, 2000);
+        } catch (error) {
+          console.error('Failed to copy to clipboard:', error);
+        }
+      });
+      
+    } else {
+      promptContent.textContent = 'Failed to generate prompt version';
+    }
+  } catch (error) {
+    console.error('Failed to generate prompt version:', error);
+    document.getElementById('velto-prompt-content').textContent = 'Error generating prompt version';
+  }
+}
+
+function insertPromptIntoAI(promptText) {
+  // Find the input field and insert the prompt
+  const inputSelector = 'textarea[data-testid="prompt-textarea"], [data-testid="prompt-textarea"], [data-id="root"] textarea, div[role="textbox"][contenteditable="true"], [contenteditable="true"][data-testid], main textarea, form textarea, footer textarea';
+  const inputElement = document.querySelector(inputSelector);
+  
+  if (inputElement) {
+    if (inputElement.tagName === 'TEXTAREA') {
+      inputElement.value = promptText;
+    } else if (inputElement.contentEditable === 'true') {
+      inputElement.textContent = promptText;
+    }
+    
+    // Trigger input event to update the UI
+    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    console.log('[Velto] ✅ Inserted prompt into AI input');
+  } else {
+    console.warn('[Velto] ❌ Could not find AI input field');
+  }
+}

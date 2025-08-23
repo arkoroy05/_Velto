@@ -80,12 +80,23 @@ class ApiService {
   // Search API
   async searchContexts(query, params = {}) {
     const queryString = new URLSearchParams({
-      q: query,
+      query: query, // Changed from 'q' to 'query' to match backend expectation
       userId: this.userId,
       ...params
     }).toString()
     
     return this.request(`/search?${queryString}`)
+  }
+
+  // Prompt Version API - Generate injectable prompts from contexts
+  async generatePromptVersion(contextId, userPrompt) {
+    return this.request(`/contexts/${contextId}/prompt-version`, {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: this.userId,
+        userPrompt: userPrompt
+      })
+    })
   }
 
   // Analytics API
@@ -106,6 +117,16 @@ class ApiService {
     }).toString()
     
     return this.request(`/projects?${queryString}`)
+  }
+
+  // Contexts API
+  async getContexts(params = {}) {
+    const queryString = new URLSearchParams({
+      userId: this.userId,
+      ...params
+    }).toString()
+    
+    return this.request(`/contexts?${queryString}`)
   }
 
   async createProject(projectData) {
