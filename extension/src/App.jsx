@@ -70,7 +70,7 @@ export default function App() {
     >
       {pathname !== '/login' && (
         <header className="flex items-center justify-between p-3 border-b border-gray-700">
-          <span aria-label="Velto" className="text-white font-semibold">Velto</span>
+          <span aria-label="Velto" className="text-white velto-brand text-[24px]">Velto</span>
           <Link to="/settings" className="text-gray-300 hover:text-white text-sm" aria-label="Settings">
             <FontAwesomeIcon icon={faGear} />
           </Link>
