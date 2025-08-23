@@ -14,13 +14,14 @@
     "permissions": ["activeTab", "storage", "tabs"],
     "host_permissions": [
       "https://chat.openai.com/*",
+      "https://chatgpt.com/*",
       "https://claude.ai/*",
       "https://www.cursor.com/*",
       "https://cursor.sh/*"
     ],
     "content_scripts": [
       {
-        "matches": ["https://chat.openai.com/*"],
+        "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
         "js": ["src/content/chatgpt.js"],
         "run_at": "document_idle"
       },
