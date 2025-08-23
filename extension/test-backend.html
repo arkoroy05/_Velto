@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velto Backend Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1a1f3a;
+            color: #e5e7eb;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background-color: rgba(31, 41, 55, 0.6);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status.connected { background-color: #10b981; }
+        .status.disconnected { background-color: #ef4444; }
+        .status.checking { background-color: #f59e0b; }
+        button {
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #4f46e5;
+        }
+        button:disabled {
+            background-color: #6b7280;
+            cursor: not-allowed;
+        }
+        .result {
+            background-color: rgba(31, 41, 55, 0.8);
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #ef4444;
+        }
+        .success {
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 Velto Backend Connection Test</h1>
+    
+    <div class="test-section">
+        <h2>Backend Status</h2>
+        <div>
+            <span class="status checking" id="status-indicator"></span>
+            <span id="status-text">Checking...</span>
+        </div>
+        <button onclick="testConnection()">Test Connection</button>
+        <button onclick="testHealth()">Health Check</button>
+        <div id="connection-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>API Tests</h2>
+        <button onclick="testGetContexts()">Get Contexts</button>
+        <button onclick="testCreateContext()">Create Context</button>
+        <button onclick="testSearch()">Search Contexts</button>
+        <button onclick="testAnalytics()">Get Analytics</button>
+        <div id="api-result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://velto.onrender.com/api/v1';
+        const TEST_USER_ID = '689e5a217224da39efe7a47f';
+
+        function updateStatus(status, text) {
+            const indicator = document.getElementById('status-indicator');
+            const textElement = document.getElementById('status-text');
+            
+            indicator.className = `status ${status}`;
+            textElement.textContent = text;
+        }
+
+        async function makeRequest(endpoint, options = {}) {
+            const url = `${API_BASE_URL}${endpoint}`;
+            const config = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-ID': TEST_USER_ID,
+                    ...options.headers
+                },
+                ...options
+            };
+
+            try {
+                const response = await fetch(url, config);
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API request failed:', error);
+                throw error;
+            }
+        }
+
+        async function testConnection() {
+            updateStatus('checking', 'Testing connection...');
+            
+            try {
+
+                // Health endpoint is at root, not under /api/v1
+                const healthUrl = 'https://velto.onrender.com/health';
+                const response = await fetch(healthUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': TEST_USER_ID
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                updateStatus('connected', 'Connected to backend');
+                showResult('connection-result', result, true);
+            } catch (error) {
+                updateStatus('disconnected', 'Connection failed');
+                showResult('connection-result', { error: error.message }, false);
+            }
+        }
+
+        async function testHealth() {
+            try {
+                // Health endpoint is at root, not under /api/v1
+                const healthUrl = 'https://velto.onrender.com/health';
+                const response = await fetch(healthUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-ID': TEST_USER_ID
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                showResult('connection-result', result, true);
+            } catch (error) {
+                showResult('connection-result', { error: error.message }, false);
+            }
+        }
+
+        async function testGetContexts() {
+            try {
+                const result = await makeRequest('/contexts?limit=5');
+                showResult('api-result', result, true);
+            } catch (error) {
+                showResult('api-result', { error: error.message }, false);
+            }
+        }
+
+        async function testCreateContext() {
+            try {
+                const testContext = {
+                    title: 'Test Context from Extension',
+                    content: 'This is a test context created by the Velto extension test page.',
+                    type: 'test',
+                    source: {
+                        type: 'manual',
+                        agentId: 'test-extension'
+                    },
+                    metadata: {
+                        test: true,
+                        timestamp: new Date().toISOString()
+                    }
+                };
+
+                const result = await makeRequest('/contexts', {
+                    method: 'POST',
+                    body: JSON.stringify(testContext)
+                });
+                showResult('api-result', result, true);
+            } catch (error) {
+                showResult('api-result', { error: error.message }, false);
+            }
+        }
+
+        async function testSearch() {
+            try {
+                const result = await makeRequest('/search?q=test&limit=5');
+                showResult('api-result', result, true);
+            } catch (error) {
+                showResult('api-result', { error: error.message }, false);
+            }
+        }
+
+        async function testAnalytics() {
+            try {
+                const result = await makeRequest('/analytics');
+                showResult('api-result', result, true);
+            } catch (error) {
+                showResult('api-result', { error: error.message }, false);
+            }
+        }
+
+        function showResult(elementId, data, isSuccess) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Auto-test connection on page load
+        window.addEventListener('load', testConnection);
+    </script>
+</body>
+</html>

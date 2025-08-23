@@ -17,7 +17,7 @@ function BottomNav() {
   )
   return (
     <nav className="fixed bottom-0 left-0 right-0 w-[380px] mx-auto border-t border-gray-700 bg-[#1a1f3a] flex">
-      <Item to="/" label="Home" icon="🏠" />
+      <Item to="/dashboard" label="Dashboard" icon="📊" />
       <Item to="/search" label="Search" icon="🔍" />
       <Item to="/capture" label="Capture" icon="📸" />
     </nav>
@@ -33,6 +33,9 @@ export default function App() {
       const loggedIn = !!res?.velto_settings?.loggedIn
       if (!loggedIn && pathname !== '/login') {
         navigate('/login', { replace: true })
+      } else if (loggedIn && pathname === '/') {
+        // Redirect from old home route to dashboard
+        navigate('/dashboard', { replace: true })
       }
     })
   }, [navigate, pathname])

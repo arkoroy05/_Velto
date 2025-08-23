@@ -6,6 +6,8 @@ export default function Capture() {
   const [message, setMessage] = useState('Select text in ChatGPT, Claude, or Cursor, then press Capture.')
   const [preview, setPreview] = useState(null)
   const [countBefore, setCountBefore] = useState(0)
+  const [backendStatus, setBackendStatus] = useState('unknown') // unknown | connected | disconnected
+  const [lastSync, setLastSync] = useState(null)
 
   useEffect(() => {
     // read current inbox count for later diff
@@ -14,7 +16,24 @@ export default function Capture() {
       const inbox = items.find(i => i.id === 'inbox')
       setCountBefore(inbox?.snippetCount || 0)
     })
+
+    // Check backend status
+    checkBackendStatus()
   }, [])
+
+  async function checkBackendStatus() {
+    try {
+      const result = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'TEST_CONNECTION' }, resolve)
+      })
+      setBackendStatus(result.success ? 'connected' : 'disconnected')
+      if (result.success) {
+        setLastSync(new Date().toLocaleTimeString())
+      }
+    } catch (error) {
+      setBackendStatus('disconnected')
+    }
+  }
 
   async function handleCaptureClick() {
     try {
@@ -45,6 +64,9 @@ export default function Capture() {
             if (latest) setPreview(latest)
             setStatus('saved')
             setMessage('✅ Snippet saved to Velto')
+            
+            // Update backend status
+            checkBackendStatus()
           } else {
             setStatus('saved')
             setMessage('✅ Capture request sent. If nothing saved, make sure you selected text on a supported site.')
@@ -57,8 +79,65 @@ export default function Capture() {
     }
   }
 
+  async function handleSyncBackend() {
+    try {
+      setMessage('Syncing with backend...')
+      const result = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'SYNC_BACKEND' }, resolve)
+      })
+      
+      if (result.ok) {
+        setMessage('✅ Synced with backend')
+        setLastSync(new Date().toLocaleTimeString())
+        // Refresh count
+        chrome.runtime.sendMessage({ type: 'CONTEXTS_LIST' }, (res) => {
+          const items = res?.items || []
+          const inbox = items.find(i => i.id === 'inbox')
+          setCountBefore(inbox?.snippetCount || 0)
+        })
+      } else {
+        setMessage('❌ Sync failed: ' + result.error)
+      }
+    } catch (error) {
+      setMessage('❌ Sync failed: ' + error.message)
+    }
+  }
+
   return (
     <section className="space-y-3">
+      {/* Backend Status */}
+      <div className="border border-gray-700 rounded-md p-3 bg-card/60">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-gray-300">Backend Status</span>
+          <button 
+            onClick={handleSyncBackend}
+            className="text-xs text-accent hover:text-accent-bright px-2 py-1 rounded"
+          >
+            Sync
+          </button>
+        </div>
+        
+        <div className="flex items-center gap-2 mb-2">
+          <div className={`w-2 h-2 rounded-full ${
+            backendStatus === 'connected' ? 'bg-green-500' : 
+            backendStatus === 'unknown' ? 'bg-gray-500' : 'bg-red-500'
+          }`} />
+          <span className={`text-xs ${
+            backendStatus === 'connected' ? 'text-green-400' : 
+            backendStatus === 'unknown' ? 'text-gray-400' : 'text-red-400'
+          }`}>
+            {backendStatus === 'connected' ? 'Connected' : 
+             backendStatus === 'unknown' ? 'Checking...' : 'Disconnected'}
+          </span>
+        </div>
+        
+        {lastSync && (
+          <div className="text-xs text-gray-400">
+            Last sync: {lastSync}
+          </div>
+        )}
+      </div>
+
       <div className="border border-gray-700 rounded-md p-4 bg-card/60 text-center space-y-3">
         <div className="text-2xl" aria-hidden>📸</div>
         <h3 className="text-white font-semibold">Manual Capture</h3>

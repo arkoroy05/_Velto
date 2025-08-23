@@ -8,6 +8,8 @@ export default function Login() {
   const [localOnly, setLocalOnly] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [backendStatus, setBackendStatus] = useState('checking') // checking | connected | disconnected
+  const [backendInfo, setBackendInfo] = useState(null)
 
   useEffect(() => {
     // If already logged in, go home
@@ -15,7 +17,30 @@ export default function Login() {
       const s = res?.velto_settings || {}
       if (s.loggedIn) navigate('/')
     })
+
+    // Test backend connection
+    testBackendConnection()
   }, [navigate])
+
+  async function testBackendConnection() {
+    try {
+      setBackendStatus('checking')
+      const result = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'TEST_CONNECTION' }, resolve)
+      })
+      
+      if (result.success) {
+        setBackendStatus('connected')
+        setBackendInfo(result.data)
+      } else {
+        setBackendStatus('disconnected')
+        setBackendInfo(null)
+      }
+    } catch (error) {
+      setBackendStatus('disconnected')
+      setBackendInfo(null)
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -31,6 +56,7 @@ export default function Login() {
       const settings = {
         loggedIn: true,
         auth: localOnly ? { mode: 'local' } : { mode: 'email', email },
+        backendConnected: backendStatus === 'connected',
         updatedAt: Date.now(),
       }
       await chrome.storage.local.set({ velto_settings: settings })
@@ -51,6 +77,41 @@ export default function Login() {
           </div>
           <h1 className="text-white text-lg font-semibold">Velto</h1>
           <p className="text-gray-300 text-sm">Shared memory for AI tools</p>
+        </div>
+
+        {/* Backend Status */}
+        <div className="border border-gray-700 rounded-md p-3 bg-card/60">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-300">Backend Status</span>
+            <button 
+              onClick={testBackendConnection}
+              className="text-xs text-accent hover:text-accent-bright"
+              disabled={backendStatus === 'checking'}
+            >
+              {backendStatus === 'checking' ? 'Checking...' : 'Refresh'}
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${
+              backendStatus === 'connected' ? 'bg-green-500' : 
+              backendStatus === 'checking' ? 'bg-yellow-500' : 'bg-red-500'
+            }`} />
+            <span className={`text-xs ${
+              backendStatus === 'connected' ? 'text-green-400' : 
+              backendStatus === 'checking' ? 'text-yellow-400' : 'text-red-400'
+            }`}>
+              {backendStatus === 'connected' ? 'Connected' : 
+               backendStatus === 'checking' ? 'Checking...' : 'Disconnected'}
+            </span>
+          </div>
+          
+          {backendInfo && (
+            <div className="mt-2 text-xs text-gray-400">
+              <div>Version: {backendInfo.version}</div>
+              <div>Database: {backendInfo.database}</div>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
