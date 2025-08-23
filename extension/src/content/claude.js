@@ -264,6 +264,9 @@ function setupInputListener(inputElement) {
         // Update current prompt for reference
         conversationContext.currentPrompt = message.trim();
         console.log('[Velto] ✅ Added prompt to conversation. Total turns:', conversationContext.conversationTurns.length);
+        
+        // Set a flag to indicate we're waiting for a response
+        conversationContext.waitingForResponse = true;
       }
     }
   };
@@ -275,16 +278,19 @@ function setupInputListener(inputElement) {
   if (form) {
     const onFormSubmit = () => {
       const message = getValue() || '';
-      if (message.trim() && message !== conversationContext.currentPrompt) {
-        conversationContext.currentPrompt = message.trim();
-        console.log('[Velto] 👤 USER INPUT:', conversationContext.currentPrompt);
+      if (message.trim()) {
+        console.log('[Velto] 👤 USER INPUT (form):', message.trim());
         
-        // Add to conversation context
+        // Add to conversation context - always add new prompts
         conversationContext.conversationTurns.push({
-          prompt: conversationContext.currentPrompt,
+          prompt: message.trim(),
           response: '', // Will be filled by AI response observer
           timestamp: Date.now()
         });
+        
+        // Update current prompt for reference
+        conversationContext.currentPrompt = message.trim();
+        console.log('[Velto] ✅ Added prompt to conversation (form). Total turns:', conversationContext.conversationTurns.length);
       }
     };
     inputElement._veltoForm = form;
@@ -298,16 +304,19 @@ function setupInputListener(inputElement) {
     const onSendClick = () => {
       setTimeout(() => {
         const message = getValue() || '';
-        if (message.trim() && message !== conversationContext.currentPrompt) {
-          conversationContext.currentPrompt = message.trim();
-          console.log('[Velto] 👤 USER INPUT:', conversationContext.currentPrompt);
+        if (message.trim()) {
+          console.log('[Velto] 👤 USER INPUT (button):', message.trim());
           
-          // Add to conversation context
+          // Add to conversation context - always add new prompts
           conversationContext.conversationTurns.push({
-            prompt: conversationContext.currentPrompt,
+            prompt: message.trim(),
             response: '', // Will be filled by AI response observer
             timestamp: Date.now()
           });
+          
+          // Update current prompt for reference
+          conversationContext.currentPrompt = message.trim();
+          console.log('[Velto] ✅ Added prompt to conversation (button). Total turns:', conversationContext.conversationTurns.length);
         }
       }, 100);
     };
@@ -351,15 +360,31 @@ function monitorAIResponses() {
                       const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
                       if (latestTurn && !latestTurn.response) {
                         latestTurn.response = responseText.trim();
+                        conversationContext.waitingForResponse = false; // Reset the flag
                         console.log('[Velto] ✅ Mapped response to prompt:', latestTurn.prompt.substring(0, 50) + '...');
                       } else {
-                        // If no prompt found, create a new turn with empty prompt
-                        conversationContext.conversationTurns.push({
-                          prompt: '[Previous conversation]',
-                          response: responseText.trim(),
-                          timestamp: Date.now()
-                        });
-                        console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
+                        // If the latest turn already has a response, look for an earlier one without response
+                        let turnToUpdate = null;
+                        for (let i = conversationContext.conversationTurns.length - 1; i >= 0; i--) {
+                          if (!conversationContext.conversationTurns[i].response) {
+                            turnToUpdate = conversationContext.conversationTurns[i];
+                            break;
+                          }
+                        }
+                        
+                        if (turnToUpdate) {
+                          turnToUpdate.response = responseText.trim();
+                          conversationContext.waitingForResponse = false; // Reset the flag
+                          console.log('[Velto] ✅ Mapped response to earlier prompt:', turnToUpdate.prompt.substring(0, 50) + '...');
+                        } else {
+                          // If no prompt found, create a new turn with empty prompt
+                          conversationContext.conversationTurns.push({
+                            prompt: '[Previous conversation]',
+                            response: responseText.trim(),
+                            timestamp: Date.now()
+                          });
+                          console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
+                        }
                       }
                     } else {
                       // If no turns exist yet, create first turn
