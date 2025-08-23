@@ -38,9 +38,32 @@ app.set('trust proxy', 1)
 // Middleware
 app.use(helmet())
 app.use(cors({
-  origin: process.env['ALLOWED_ORIGINS']?.split(',') || ['http://localhost:3000'],
-  credentials: true
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://velto.onrender.com',
+    // Allow Chrome extensions (chrome-extension://*)
+    /^chrome-extension:\/\/.*$/,
+    // Allow other common origins
+    'https://velto.ai',
+    'https://www.velto.ai'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'X-User-ID', 'Authorization', 'X-Requested-With']
 }))
+
+// Handle preflight requests
+app.options('*', cors())
+
+// Add CORS headers to all responses
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-User-ID, Authorization, X-Requested-With')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  next()
+})
 app.use(compression())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
@@ -49,6 +72,12 @@ app.use(requestLogger)
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
+  // Add CORS headers for this endpoint
+  res.header('Access-Control-Allow-Origin', _req.headers.origin || '*')
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-User-ID, Authorization, X-Requested-With')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  
   try {
     const dbHealth = await databaseService.healthCheck()
     const uptime = process.uptime()
@@ -69,6 +98,15 @@ app.get('/health', async (_req, res) => {
       error: 'Service unavailable'
     })
   }
+})
+
+// OPTIONS handler for health endpoint
+app.options('/health', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*')
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-User-ID, Authorization, X-Requested-With')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  res.status(200).end()
 })
 
 // API routes
