@@ -150,38 +150,60 @@ export default function DashboardHome({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {contexts.slice(0, 3).map((context) => (
-            <Card key={context.id} className="bg-[#1a1a1a] border-[#333333] hover:bg-[#1f1f1f] transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3 mb-3">
-                  <context.icon className={`w-5 h-5 text-${context.color}-400 mt-1`} />
-                  <div className="flex-1">
-                    <h3 className="font-medium text-white mb-1">{context.name}</h3>
-                    <p className="text-sm text-gray-400">{context.aiModel}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-300 mb-3">
-                  {context.type === "Debug" && "Fixed authentication error in React hook..."}
-                  {context.type === "Performance" && "Optimized API response times by 40%..."}
-                  {context.type === "Optimization" && "Refactored custom hooks for better performance..."}
-                </p>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>
-                    {context.created} • {context.snippets} snippets
-                  </span>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
-                      <Play className="w-3 h-3 mr-1" />
-                      Replay
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
-                      Share
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {isLoading
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <Card key={`mem-skel-${i}`} className="bg-[#1a1a1a] border-[#333333]">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="w-5 h-5 rounded bg-gray-700 animate-pulse mt-1" />
+                      <div className="flex-1">
+                        <div className="w-40 h-4 rounded bg-gray-700/70 animate-pulse mb-2" />
+                        <div className="w-24 h-3 rounded bg-gray-700/50 animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="w-full h-4 rounded bg-gray-700/50 animate-pulse mb-3" />
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="w-32 h-3 rounded bg-gray-700/40 animate-pulse" />
+                      <div className="flex gap-2">
+                        <div className="w-10 h-6 rounded bg-gray-700/40 animate-pulse" />
+                        <div className="w-10 h-6 rounded bg-gray-700/40 animate-pulse" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            : contexts.slice(0, 3).map((context) => (
+                <Card key={context.id} className="bg-[#1a1a1a] border-[#333333] hover:bg-[#1f1f1f] transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3 mb-3">
+                      <context.icon className={`w-5 h-5 text-${context.color}-400 mt-1`} />
+                      <div className="flex-1">
+                        <h3 className="font-medium text-white mb-1">{context.name}</h3>
+                        <p className="text-sm text-gray-400">{context.aiModel}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-300 mb-3">
+                      {context.type === "Debug" && "Fixed authentication error in React hook..."}
+                      {context.type === "Performance" && "Optimized API response times by 40%..."}
+                      {context.type === "Optimization" && "Refactored custom hooks for better performance..."}
+                    </p>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>
+                        {context.created} • {context.snippets} snippets
+                      </span>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
+                          <Play className="w-3 h-3 mr-1" />
+                          Replay
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
+                          Share
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
         </div>
       </div>
 
@@ -196,42 +218,31 @@ export default function DashboardHome({
         <Card className="bg-[#1a1a1a] border-[#333333]">
           <CardContent className="p-6">
             <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm">+</span>
-                </div>
-                <div className="flex-1">
-                  <div className="text-white font-medium">New context created: "Authentication Debug Session"</div>
-                  <div className="text-sm text-gray-400">2 hours ago • ChatGPT integration</div>
-                </div>
-                <Badge variant="secondary" className="bg-blue-600/20 text-blue-400">
-                  Created
-                </Badge>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-white font-medium">Analysis completed for "API Performance Analysis"</div>
-                  <div className="text-sm text-gray-400">3 hours ago • 5 insights generated</div>
-                </div>
-                <Badge variant="secondary" className="bg-green-600/20 text-green-400">
-                  Completed
-                </Badge>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-                  <Code className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-white font-medium">Prompt version generated for "React Hook Optimization"</div>
-                  <div className="text-sm text-gray-400">6 hours ago • Version 2.1 created</div>
-                </div>
-                <Badge variant="secondary" className="bg-purple-600/20 text-purple-400">
-                  Generated
-                </Badge>
-              </div>
+              {isLoading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div className="flex items-start gap-3" key={`act-skel-${i}`}>
+                      <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse" />
+                      <div className="flex-1">
+                        <div className="w-64 h-4 rounded bg-gray-700/70 animate-pulse mb-2" />
+                        <div className="w-40 h-3 rounded bg-gray-700/50 animate-pulse" />
+                      </div>
+                      <div className="w-16 h-6 rounded bg-gray-700/60 animate-pulse" />
+                    </div>
+                  ))
+                : contexts.slice(0, 3).map((context) => (
+                    <div className="flex items-start gap-3" key={`act-${context.id}`}>
+                      <div className={`w-8 h-8 bg-${context.color}-600 rounded-full flex items-center justify-center`}>
+                        <context.icon className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-white font-medium">Context updated: "{context.name}"</div>
+                        <div className="text-sm text-gray-400">{context.created} • {context.aiModel}</div>
+                      </div>
+                      <Badge variant="secondary" className={`bg-${context.color}-600/20 text-${context.color}-400`}>
+                        Recent
+                      </Badge>
+                    </div>
+                  ))}
             </div>
           </CardContent>
         </Card>

@@ -13,7 +13,7 @@ export type NavigationItem =
 export type ApiStatus = "healthy" | "degraded" | "offline"
 
 export interface Context {
-  id: number
+  id: string
   name: string
   type: string
   created: string

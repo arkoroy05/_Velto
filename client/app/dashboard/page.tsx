@@ -51,7 +51,8 @@ import { Progress } from "@/components/ui/progress"
 import Sidebar from "@/components/dashboard/Sidebar"
 import Topbar from "@/components/dashboard/Topbar"
 import { getStatusColor, getSeverityColor } from "@/components/dashboard/utils"
-import type { NavigationItem, ApiStatus } from "@/components/dashboard/types"
+import type { NavigationItem, ApiStatus, Context } from "@/components/dashboard/types"
+import api, { type BackendContext } from "@/lib/api"
 import DashboardHome from "@/components/dashboard/DashboardHome"
 import AllContexts from "@/components/dashboard/AllContexts"
 
@@ -61,78 +62,7 @@ export default function VeltoDashboard() {
   const [isLoading, setIsLoading] = useState(false)
   const [apiStatus, setApiStatus] = useState<ApiStatus>("healthy")
 
-  const [contexts, setContexts] = useState([
-    {
-      id: 1,
-      name: "Authentication Debug Session",
-      type: "Debug",
-      created: "2 hours ago",
-      lastAnalyzed: "1 hour ago",
-      status: "Active",
-      icon: Brain,
-      color: "blue",
-      snippets: 12,
-      aiModel: "ChatGPT",
-      tags: ["auth", "react", "hooks"],
-      size: "2.3 MB",
-    },
-    {
-      id: 2,
-      name: "API Performance Analysis",
-      type: "Performance",
-      created: "4 hours ago",
-      lastAnalyzed: "3 hours ago",
-      status: "Active",
-      icon: Activity,
-      color: "green",
-      snippets: 8,
-      aiModel: "Claude",
-      tags: ["performance", "api", "optimization"],
-      size: "1.8 MB",
-    },
-    {
-      id: 3,
-      name: "React Hook Optimization",
-      type: "Optimization",
-      created: "1 day ago",
-      lastAnalyzed: "6 hours ago",
-      status: "Processing",
-      icon: Code,
-      color: "purple",
-      snippets: 15,
-      aiModel: "GPT-4",
-      tags: ["react", "hooks", "performance"],
-      size: "3.1 MB",
-    },
-    {
-      id: 4,
-      name: "Database Query Optimization",
-      type: "Database",
-      created: "2 days ago",
-      lastAnalyzed: "1 day ago",
-      status: "Completed",
-      icon: Database,
-      color: "amber",
-      snippets: 6,
-      aiModel: "Claude",
-      tags: ["database", "sql", "optimization"],
-      size: "1.2 MB",
-    },
-    {
-      id: 5,
-      name: "UI Component Refactoring",
-      type: "Refactoring",
-      created: "3 days ago",
-      lastAnalyzed: "2 days ago",
-      status: "Inactive",
-      icon: Palette,
-      color: "pink",
-      snippets: 20,
-      aiModel: "ChatGPT",
-      tags: ["ui", "components", "refactoring"],
-      size: "4.5 MB",
-    },
-  ])
+  const [contexts, setContexts] = useState<Context[]>([])
 
   const [analysisResults, setAnalysisResults] = useState([
     {
@@ -224,31 +154,111 @@ export default function VeltoDashboard() {
   }, [])
 
   useEffect(() => {
-    const checkApiHealth = () => {
-      // Simulate API health check
-      const statuses: ApiStatus[] = ["healthy", "degraded", "offline"]
-      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)]
-      setApiStatus(randomStatus)
+    const checkHealth = async () => {
+      try {
+        await api.healthCheck()
+        setApiStatus("healthy")
+      } catch (e) {
+        setApiStatus("offline")
+      }
     }
 
-    const interval = setInterval(checkApiHealth, 30000) // Check every 30 seconds
+    checkHealth()
+    const interval = setInterval(checkHealth, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  const handleContextAction = async (action: string, contextId: number) => {
-    setIsLoading(true)
-    console.log(`[v0] Executing ${action} on context ${contextId}`)
+  const mapBackendToUI = (ctx: BackendContext): Context => {
+    const id = (ctx._id || (ctx as any).id || "") as string
+    const title = (ctx.title || (ctx as any).name || "Untitled") as string
+    const createdAt = ctx.createdAt || ctx.updatedAt || new Date().toISOString()
+    const snippetCount = Array.isArray(ctx.snippets) ? ctx.snippets.length : 0
+    const type = ctx.type || ctx.source?.type || "Context"
+    const size = ctx.content ? `${Math.ceil(ctx.content.length / 1024)} KB` : "-"
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Keep colors constrained to existing classes used elsewhere
+    const color: Context["color"] = "blue"
 
-    if (action === "delete") {
-      setContexts((prev) => prev.filter((c) => c.id !== contextId))
-    } else if (action === "analyze") {
-      setContexts((prev) => prev.map((c) => (c.id === contextId ? { ...c, status: "Processing" } : c)))
+    return {
+      id,
+      name: title,
+      type,
+      created: new Date(createdAt).toLocaleString(),
+      lastAnalyzed: "-",
+      status: "Active",
+      icon: Brain,
+      color,
+      snippets: snippetCount,
+      aiModel: ctx.metadata?.aiModel || "-",
+      tags: Array.isArray((ctx as any).tags) ? ((ctx as any).tags as string[]) : [],
+      size,
     }
+  }
 
-    setIsLoading(false)
+  const loadContexts = async () => {
+    setIsLoading(true)
+    try {
+      const res: any = await api.getContexts({ limit: 100 })
+      const list: BackendContext[] = Array.isArray(res)
+        ? res
+        : (res?.data && Array.isArray(res.data))
+        ? res.data
+        : []
+      // Sort by most recent timestamp (updatedAt, then createdAt)
+      const ts = (d?: string) => (d ? new Date(d).getTime() : 0)
+      const getTs = (c: BackendContext) => ts(c.updatedAt) || ts(c.createdAt)
+      const sorted = [...list].sort((a, b) => getTs(b) - getTs(a))
+      setContexts(sorted.map(mapBackendToUI))
+    } catch (e) {
+      console.warn("Failed to load contexts", e)
+      setContexts([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    // Initial data load
+    loadContexts()
+  }, [])
+
+  const handleContextAction = async (action: string, contextId: string) => {
+    setIsLoading(true)
+    try {
+      if (action === "delete") {
+        await api.deleteContext(contextId)
+        setContexts((prev) => prev.filter((c) => c.id !== contextId))
+      } else if (action === "analyze") {
+        setContexts((prev) => prev.map((c) => (c.id === contextId ? { ...c, status: "Processing" } : c)))
+        await api.analyzeContext(contextId)
+        await loadContexts()
+      } else if (action === "generate") {
+        await api.generatePromptVersion(contextId)
+        await loadContexts()
+      }
+    } catch (e) {
+      console.error("Action failed", e)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreateContext = async () => {
+    setIsLoading(true)
+    try {
+      await api.createContext({
+        title: "New Context",
+        content: "New context created from dashboard.",
+        type: "manual",
+        source: { type: "manual", agentId: "dashboard" },
+        metadata: { createdBy: "dashboard" },
+      })
+      await loadContexts()
+    } catch (e) {
+      console.error("Create context failed", e)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Removed legacy inline AllContexts and duplicate renderCurrentView from previous refactor
@@ -909,14 +919,14 @@ export default function VeltoDashboard() {
   return (
     <div className="flex h-screen bg-[#0f0f0f] text-white">
       {/* Left Sidebar */}
-      <Sidebar activeView={activeView} setActiveView={setActiveView} contexts={contexts} apiStatus={apiStatus} />
+      <Sidebar activeView={activeView} setActiveView={setActiveView} contexts={contexts} apiStatus={apiStatus} isLoading={isLoading} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <Topbar
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          onNewContext={() => console.log("[v0] Create new context")}
+          onNewContext={handleCreateContext}
           isLoading={isLoading}
         />
 

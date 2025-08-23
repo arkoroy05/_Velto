@@ -29,9 +29,10 @@ interface SidebarProps {
   setActiveView: (view: NavigationItem) => void
   contexts: Context[]
   apiStatus: ApiStatus
+  isLoading?: boolean
 }
 
-export default function Sidebar({ activeView, setActiveView, contexts, apiStatus }: SidebarProps) {
+export default function Sidebar({ activeView, setActiveView, contexts, apiStatus, isLoading = false }: SidebarProps) {
   return (
     <div className="w-64 flex flex-col m-3 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-2xl backdrop-saturate-150 shadow-lg overflow-hidden">
       <div className="p-4 border-b border-white/10">
@@ -133,22 +134,31 @@ export default function Sidebar({ activeView, setActiveView, contexts, apiStatus
         <div className="mt-6">
           <div className="text-xs font-medium text-gray-500 mb-2 px-2">Recent Contexts</div>
           <div className="space-y-1">
-            {contexts.slice(0, 3).map((context) => (
-              <Button
-                key={context.id}
-                variant="ghost"
-                className="w-full justify-start gap-3 text-gray-400 hover:text-white hover:bg-white/10"
-                onClick={() => {
-                  setActiveView("contexts")
-                  console.log(`[v0] Open context: ${context.name}`)
-                }}
-              >
-                <div className={`w-4 h-4 bg-${context.color}-500 rounded-sm flex items-center justify-center`}>
-                  <context.icon className="w-3 h-3 text-white" />
-                </div>
-                <span className="truncate">{context.name}</span>
-              </Button>
-            ))}
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <Button key={idx} variant="ghost" disabled className="w-full justify-start gap-3">
+                  <div className="w-4 h-4 rounded-sm bg-gray-700 animate-pulse" />
+                  <div className="h-3 w-40 bg-gray-700 rounded animate-pulse" />
+                </Button>
+              ))
+            ) : (
+              contexts.slice(0, 3).map((context) => (
+                <Button
+                  key={context.id}
+                  variant="ghost"
+                  className="w-full justify-start gap-3 text-gray-400 hover:text-white hover:bg-white/10"
+                  onClick={() => {
+                    setActiveView("contexts")
+                    console.log(`[v0] Open context: ${context.name}`)
+                  }}
+                >
+                  <div className={`w-4 h-4 bg-${context.color}-500 rounded-sm flex items-center justify-center`}>
+                    <context.icon className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="truncate">{context.name}</span>
+                </Button>
+              ))
+            )}
           </div>
         </div>
 
