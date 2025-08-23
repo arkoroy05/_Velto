@@ -35,13 +35,10 @@ export default function FooterSection() {
     <footer className="py-16 md:py-32">
       <div className="mx-auto max-w-5xl px-6">
         <Link href="/" aria-label="go home" className="mx-auto block size-fit">
-          <div className="text-xl font-bold tracking-wider">Velto</div>
+          <div className="text-[270px] font-bold tracking-wider">Velto</div>
         </Link>
 
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Velto © 2025 — The Shared Memory Layer for AI.
-        </p>
-
+        
         <div className="my-8 flex flex-wrap justify-center gap-6 text-sm">
           {links.map((link, index) => (
             <Link key={index} href={link.href} className="text-muted-foreground hover:text-primary block duration-150">

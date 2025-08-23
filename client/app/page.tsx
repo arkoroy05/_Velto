@@ -2,7 +2,7 @@
 import { ArrowRight } from "lucide-react"
 import { Home, Cpu, Shield, FileText, Users } from "lucide-react"
 // Import the BentoGrid component
-import { BentoGrid1 } from "@/components/ui/bento-grid"
+import MagicBento from "@/components/ui/magic-bento"
 import { StarBorder } from "@/components/ui/star-border"
 import Features from "@/components/ui/features-new"
 import FooterSection from "@/components/ui/footer"
@@ -81,14 +81,29 @@ export default function TuringLanding() {
               Here’s how you stop wasting time and start compounding knowledge:
             </p>
           </div>
-          <BentoGrid1 />
+          <div className="flex w-full justify-center">
+            <MagicBento 
+              textAutoHide
+              enableStars
+              enableSpotlight
+              enableBorderGlow
+              enableTilt
+              enableMagnetism
+              clickEffect
+              spotlightRadius={300}
+              particleCount={12}
+              glowColor="132, 0, 255"
+            />
+          </div>
         </div>
       </section>
       {/* Section intro above features */}
-      <section className="relative z-10 py-12 bg-[#0a0a0a]">
+      {/* Testimonials Section */}
+      <section id="features" className="relative z-10 py-20 bg-[#0a0a0a]">
+      <section className="relative z-10 pt-9 pb-1 bg-[#0a0a0a]">
         <div className="max-w-[1400px] mx-auto px-[60px]">
-          <div className="text-center mb-8">
-            <h2 className="text-[40px] font-light leading-[1.1] mb-4 tracking-[-1px]">
+          <div className="text-center mb-1">
+            <h2 className="text-[80px] font-light leading-[1.1] mt-10 tracking-[-1px]">
               What Velto Unlocks
             </h2>
             <p className="text-lg text-[#b8b8b8] max-w-2xl mx-auto">
@@ -97,8 +112,6 @@ export default function TuringLanding() {
           </div>
         </div>
       </section>
-      {/* Testimonials Section */}
-      <section id="features" className="relative z-10 py-20 bg-[#0a0a0a]">
         <Features />
       <Testimonials />
       </section>
