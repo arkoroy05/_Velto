@@ -8,6 +8,47 @@ chrome.runtime.onInstalled.addListener(() => {
   (async () => { try { await ensureInbox() } catch (_) {} })();
 });
 
+// ----- Tab change: flush active page context -----
+// Track last active tab per window so we can flush when switching away
+const lastActiveByWindow = new Map(); // windowId -> tabId
+let lastFocusedWindowId = null;
+
+function safeFlushTab(tabId) {
+  if (!tabId || typeof tabId !== 'number') return;
+  try {
+    chrome.tabs.sendMessage(tabId, { type: MSG.FLUSH_CONTEXT }, () => {
+      // ignore errors if no content script in that tab
+      void chrome.runtime.lastError;
+    });
+  } catch (_) {}
+}
+
+// When a new tab becomes active, flush the previous active tab in that window
+chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
+  const prevTabId = lastActiveByWindow.get(windowId);
+  if (prevTabId && prevTabId !== tabId) {
+    safeFlushTab(prevTabId);
+  }
+  lastActiveByWindow.set(windowId, tabId);
+});
+
+// When focus switches to another window, flush the last active tab of the previous window
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (lastFocusedWindowId !== null && lastFocusedWindowId !== chrome.windows.WINDOW_ID_NONE) {
+    const prevTabId = lastActiveByWindow.get(lastFocusedWindowId);
+    safeFlushTab(prevTabId);
+  }
+  lastFocusedWindowId = windowId;
+});
+
+// When a tab starts a new navigation, try flushing before the page unloads
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // If URL changed or page is starting to load, attempt to flush
+  if ((changeInfo.status === 'loading' && changeInfo.url) || (changeInfo.url && changeInfo.url !== tab?.url)) {
+    safeFlushTab(tabId);
+  }
+});
+
 // ----- Storage helpers -----
 const CK = STORAGE_KEYS.CONTEXTS_CACHE; // 'velto_contexts'
 async function readAllContexts() {

@@ -536,6 +536,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   } else if (msg?.type === MSG.CAPTURE_STOP) {
     console.log('[Velto] ⏹️ End capture requested');
     stopConversationMonitoring();
+  } else if (msg?.type === MSG.FLUSH_CONTEXT) {
+    // Flush accumulated conversation context on tab/nav change
+    try {
+      if (conversationContext?.conversationTurns?.length > 0) {
+        console.log('[Velto] 🔄 FLUSH_CONTEXT received; saving Claude conversation context');
+        saveConversationContext();
+      }
+    } catch (_) {}
   } else if (msg?.type === MSG.CAPTURE_STATE_GET) {
     sendResponse?.({ monitoring: isMonitoring });
     return true;

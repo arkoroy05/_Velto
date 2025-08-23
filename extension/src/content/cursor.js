@@ -37,6 +37,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     handleCapture();
   } else if (msg?.type === MSG.CAPTURE_STOP) {
     isMonitoring = false;
+  } else if (msg?.type === MSG.FLUSH_CONTEXT) {
+    // No ongoing conversation tracking for Cursor; safe no-op
+    // Optionally, we could capture current selection, but keep it silent to avoid noise
+    // console.log('[Velto] FLUSH_CONTEXT received on Cursor - no conversation to flush');
   } else if (msg?.type === MSG.CAPTURE_STATE_GET) {
     sendResponse?.({ monitoring: isMonitoring });
     return true;

@@ -25,7 +25,10 @@ export const MSG = {
   
   // Context search
   SEARCH_CONTEXTS: 'SEARCH_CONTEXTS',
-  SEARCH_CONTEXTS_RESPONSE: 'SEARCH_CONTEXTS_RESPONSE'
+  SEARCH_CONTEXTS_RESPONSE: 'SEARCH_CONTEXTS_RESPONSE',
+  
+  // Flush current page/app context to backend (used on tab changes)
+  FLUSH_CONTEXT: 'FLUSH_CONTEXT'
 };
 
 export const CMD = { CAPTURE: 'capture' };
