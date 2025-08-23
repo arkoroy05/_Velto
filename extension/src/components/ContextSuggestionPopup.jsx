@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, ArrowUpRight, Loader2 } from 'lucide-react';
+import grad from '../assets/grad.jpg';
 
 const ContextSuggestionPopup = ({ 
   isVisible, 
@@ -76,17 +77,27 @@ const ContextSuggestionPopup = ({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden">
+      <div
+        className="rounded-lg shadow-2xl w-[380px] mx-4 max-h-[80vh] overflow-hidden text-gray-200"
+        style={{
+          backgroundImage: `url(${grad})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: '#1a1f3a',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-50 to-purple-50">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Context Suggestions
-          </h3>
+        <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800/50">
+          <div className="flex items-center gap-2">
+            <span aria-label="Velto" className="text-white velto-brand text-[24px]">Velto</span>
+            <span className="text-sm text-gray-300">Context Suggestions</span>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1 hover:bg-gray-700 rounded-full transition-colors"
           >
-            <X size={20} className="text-gray-500" />
+            <X size={20} className="text-gray-300" />
           </button>
         </div>
 
@@ -94,56 +105,54 @@ const ContextSuggestionPopup = ({
         <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 size={24} className="animate-spin text-blue-500" />
-              <span className="ml-2 text-gray-600">Searching contexts...</span>
+              <Loader2 size={24} className="animate-spin text-accent" />
+              <span className="ml-2 text-gray-300">Searching contexts...</span>
             </div>
           ) : suggestions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-400">
               <p>No relevant contexts found</p>
               <p className="text-sm mt-1">Try rephrasing your prompt</p>
             </div>
           ) : (
             <>
               {/* User Prompt Display */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-sm text-gray-600 mb-1">Your prompt:</p>
-                <p className="text-gray-900 font-medium">{userPrompt}</p>
+              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <p className="text-sm text-gray-300 mb-1">Your prompt:</p>
+                <p className="text-white font-medium">{userPrompt}</p>
               </div>
 
               {/* Context Suggestions */}
               <div className="space-y-3">
-                <h4 className="font-medium text-gray-900">Relevant Contexts:</h4>
+                <h4 className="font-medium text-white">Relevant Contexts:</h4>
                 {suggestions.map((context, index) => (
                   <div
                     key={context._id || context.id || index}
-                    className={`border rounded-lg p-3 cursor-pointer transition-all hover:border-blue-300 ${
-                      selectedContext?._id === context._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                    className={`border rounded-lg p-3 cursor-pointer transition-all hover:border-accent/30 ${
+                      selectedContext?._id === context._id ? 'border-accent/30 bg-accent/20 shadow-glow' : 'border-gray-700 bg-gray-800/50'
                     }`}
                     onClick={() => handleContextSelect(context)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h5 className="font-medium text-gray-900 mb-1">
+                        <h5 className="font-medium text-white mb-1">
                           {context.title || 'Untitled Context'}
                         </h5>
-                        <p className="text-sm text-gray-600 line-clamp-2">
+                        <p className="text-sm text-gray-300 line-clamp-2">
                           {context.summary || context.content?.substring(0, 100) || 'No summary available'}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                          <span className="text-xs bg-gray-800/70 text-gray-300 px-2 py-1 rounded border border-gray-700">
                             {context.type || 'conversation'}
                           </span>
                           {context.source?.type && (
-                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                              {context.source.type}
-                            </span>
+                            <span className="text-xs text-accent px-2 py-1 rounded border border-accent/30 bg-accent/20">{context.source.type}</span>
                           )}
                         </div>
                       </div>
                       <ArrowUpRight 
                         size={16} 
                         className={`text-gray-400 transition-colors ${
-                          selectedContext?._id === context._id ? 'text-blue-500' : ''
+                          selectedContext?._id === context._id ? 'text-accent' : ''
                         }`}
                       />
                     </div>
@@ -153,17 +162,17 @@ const ContextSuggestionPopup = ({
 
               {/* Prompt Version Display */}
               {selectedContext && (
-                <div className="border-t pt-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Generated Prompt:</h4>
+                <div className="border-t border-gray-700 pt-4">
+                  <h4 className="font-medium text-white mb-2">Generated Prompt:</h4>
                   {isGeneratingPrompt ? (
                     <div className="flex items-center justify-center py-4">
-                      <Loader2 size={20} className="animate-spin text-blue-500" />
-                      <span className="ml-2 text-gray-600">Generating...</span>
+                      <Loader2 size={20} className="animate-spin text-accent" />
+                      <span className="ml-2 text-gray-300">Generating...</span>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                        <p className="text-sm text-gray-200 whitespace-pre-wrap">
                           {promptVersion}
                         </p>
                       </div>
@@ -173,7 +182,7 @@ const ContextSuggestionPopup = ({
                         <button
                           onClick={handleInsert}
                           disabled={!promptVersion || promptVersion.includes('Failed') || promptVersion.includes('Error')}
-                          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                          className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
                         >
                           Insert into AI
                         </button>
@@ -181,7 +190,7 @@ const ContextSuggestionPopup = ({
                           onClick={handleCopy}
                           disabled={!promptVersion || promptVersion.includes('Failed') || promptVersion.includes('Error')}
                           data-copy-btn
-                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                          className="px-4 py-2 border border-gray-700 text-gray-200 rounded-lg hover:bg-gray-800 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
                         >
                           Copy
                         </button>

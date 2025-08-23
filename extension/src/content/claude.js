@@ -1,6 +1,52 @@
 import { MSG } from '../lib/constants.js';
+import grad from '../assets/grad.jpg';
 
 console.log('[Velto] Claude content script loaded');
+
+// --- Lightweight Markdown renderer for popup content ---
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function renderMarkdown(md) {
+  if (!md) return '';
+  // Preserve code fences first
+  const codeBlocks = [];
+  md = md.replace(/```([\s\S]*?)```/g, (m, p1) => {
+    codeBlocks.push(`<pre style="background: rgba(17,24,39,0.7); border:1px solid #374151; padding:12px; border-radius:8px; overflow:auto; color:#e5e7eb;"><code>${escapeHtml(p1.trim())}</code></pre>`);
+    return `§§CODEBLOCK_${codeBlocks.length - 1}§§`;
+  });
+
+  // Escape everything else
+  md = escapeHtml(md);
+
+  // Headings
+  md = md.replace(/^######\s?(.*)$/gm, '<h6 style="margin:8px 0; font-size:12px; color:#d1d5db;">$1</h6>')
+         .replace(/^#####\s?(.*)$/gm, '<h5 style="margin:8px 0; font-size:13px; color:#e5e7eb;">$1</h5>')
+         .replace(/^####\s?(.*)$/gm, '<h4 style="margin:10px 0; font-size:14px; color:#fff; font-weight:600;">$1</h4>')
+         .replace(/^###\s?(.*)$/gm, '<h3 style="margin:12px 0; font-size:15px; color:#fff; font-weight:600;">$1</h3>')
+         .replace(/^##\s?(.*)$/gm, '<h2 style="margin:14px 0; font-size:16px; color:#fff; font-weight:700;">$1</h2>')
+         .replace(/^#\s?(.*)$/gm, '<h1 style="margin:16px 0; font-size:18px; color:#fff; font-weight:700;">$1</h1>');
+
+  // Bold, italics, inline code
+  md = md.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+         .replace(/\*(.*?)\*/g, '<em>$1</em>')
+         .replace(/`([^`]+)`/g, '<code style="background: rgba(17,24,39,0.7); border:1px solid #374151; padding:2px 6px; border-radius:4px; color:#e5e7eb;">$1</code>');
+
+  // Lists
+  md = md.replace(/^(\s*)-\s+(.*)$/gm, '$1• $2');
+
+  // Newlines to paragraphs
+  md = md.split(/\n{2,}/).map(p => `<p style=\"margin:8px 0; line-height:1.6; color:#e5e7eb;\">${p.replace(/\n/g, '<br/>')}</p>`).join('');
+
+  // Restore code blocks
+  md = md.replace(/§§CODEBLOCK_(\d+)§§/g, (_, i) => codeBlocks[Number(i)] || '');
+
+  return md;
+}
 
 function getSelectedText() {
   const sel = window.getSelection?.();
@@ -42,19 +88,19 @@ async function handleCapture() {
     console.log('[Velto] No selection to capture');
     return;
   }
-    chrome.runtime.sendMessage({
-      type: MSG.CONTEXTS_CREATE,
-      payload: {
-        content,
-        title: 'Claude selection',
-        url: location.href,
-        host: location.host,
-        tool: 'Claude',
-      },
-    }, (res) => {
-      if (res?.ok) console.log('[Velto] snippet saved', res);
-      else console.warn('[Velto] failed to save snippet', res);
-    });
+  chrome.runtime.sendMessage({
+    type: MSG.CONTEXTS_CREATE,
+    payload: {
+      content,
+      title: 'Claude selection',
+      url: location.href,
+      host: location.host,
+      tool: 'Claude',
+    },
+  }, (res) => {
+    if (res?.ok) console.log('[Velto] snippet saved', res);
+    else console.warn('[Velto] failed to save snippet', res);
+  });
 }
 
 // Enhanced conversation monitoring for Claude
@@ -643,58 +689,61 @@ function showContextSuggestionPopup(userPrompt, suggestions) {
     position: fixed;
     top: 20px;
     right: 20px;
-    width: 400px;
+    width: 380px;
     max-height: 600px;
-    background: white;
+    color: #e5e7eb;
+    background: #1a1f3a url(${grad}) center/cover no-repeat;
     border-radius: 12px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
     z-index: 999999;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #374151;
   `;
   
   // Create popup content
   popup.innerHTML = `
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 16px; color: white;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Context Suggestions</h3>
-        <button id="velto-popup-close" style="background: none; border: none; color: white; cursor: pointer; font-size: 18px;">×</button>
+    <div style="padding: 12px 16px; border-bottom: 1px solid #374151; background: rgba(31,41,55,0.5); display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span aria-label="Velto" style="color:#fff; font-family: 'Playfair Display', 'Edu AU VIC WA NT Hand', serif; font-weight:724; font-size: 20px;">Velto</span>
+        <span style="font-size: 12px; color:#d1d5db;">Context Suggestions</span>
       </div>
+      <button id="velto-popup-close" style="background: none; border: none; color: #d1d5db; cursor: pointer; font-size: 18px; padding:4px; border-radius:6px;" onmouseover="this.style.backgroundColor='#374151'" onmouseout="this.style.backgroundColor='transparent'">×</button>
     </div>
     
-    <div style="padding: 16px; max-height: 500px; overflow-y: auto;">
-      <div style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-        <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">Your prompt:</p>
-        <p style="margin: 0; font-size: 14px; font-weight: 500; color: #111827;">${userPrompt}</p>
+    <div style="padding: 16px; max-height: 520px; overflow-y: auto;">
+      <div style="background: rgba(31,41,55,0.5); border:1px solid #374151; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <p style="margin: 0 0 4px 0; font-size: 12px; color: #d1d5db;">Your prompt:</p>
+        <div id="velto-user-prompt" style="margin: 0;">${renderMarkdown(userPrompt)}</div>
       </div>
       
-      <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #111827;">Relevant Contexts:</h4>
+      <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #ffffff;">Relevant Contexts:</h4>
       
-      <div id="velto-suggestions-list" style="space-y: 12px;">
+      <div id="velto-suggestions-list" style="">
         ${suggestions.map((context, index) => `
           <div class="velto-suggestion-item" data-context-id="${context._id || context.id || index}" style="
-            border: 1px solid #e5e7eb;
+            border: 1px solid #374151;
             border-radius: 8px;
             padding: 12px;
             cursor: pointer;
             transition: all 0.2s;
             margin-bottom: 8px;
-          " onmouseover="this.style.borderColor='#3b82f6'; this.style.backgroundColor='#f0f9ff';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white';">
+            background: rgba(31,41,55,0.5);
+          " onmouseover="this.style.borderColor='rgba(99,102,241,0.3)'; this.style.boxShadow='0 0 20px rgba(99,102,241,0.3)';" onmouseout="this.style.borderColor='#374151'; this.style.boxShadow='none';">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div style="flex: 1;">
-                <h5 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 500; color: #111827;">
+                <h5 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 500; color: #ffffff;">
                   ${context.title || 'Untitled Context'}
                 </h5>
-                <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280; line-height: 1.4;">
+                <p style="margin: 0 0 8px 0; font-size: 12px; color: #d1d5db; line-height: 1.4;">
                   ${context.summary || context.content?.substring(0, 100) || 'No summary available'}
                 </p>
                 <div style="display: flex; gap: 6px;">
-                  <span style="font-size: 10px; background: #f3f4f6; color: #6b7280; padding: 2px 6px; border-radius: 4px;">
+                  <span style="font-size: 10px; background: rgba(31,41,55,0.7); border:1px solid #374151; color: #d1d5db; padding: 2px 6px; border-radius: 4px;">
                     ${context.type || 'conversation'}
                   </span>
                   ${context.source?.type ? `
-                    <span style="font-size: 10px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px;">
+                    <span style="font-size: 10px; color: #6366f1; background: rgba(99,102,241,0.2); border:1px solid rgba(99,102,241,0.3); padding: 2px 6px; border-radius: 4px;">
                       ${context.source.type}
                     </span>
                   ` : ''}
@@ -706,23 +755,24 @@ function showContextSuggestionPopup(userPrompt, suggestions) {
         `).join('')}
       </div>
       
-      <div id="velto-prompt-version" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #111827;">Generated Prompt:</h4>
+      <div id="velto-prompt-version" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #374151;">
+        <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #ffffff;">Generated Prompt:</h4>
         <div id="velto-prompt-content" style="
-          background: #f9fafb;
+          background: rgba(31,41,55,0.5);
+          border:1px solid #374151;
           padding: 12px;
           border-radius: 8px;
           margin-bottom: 12px;
           font-size: 13px;
           line-height: 1.5;
-          color: #111827;
+          color: #e5e7eb;
           white-space: pre-wrap;
         "></div>
         
         <div style="display: flex; gap: 8px;">
           <button id="velto-insert-btn" style="
             flex: 1;
-            background: #3b82f6;
+            background: #4f46e5;
             color: white;
             border: none;
             padding: 8px 16px;
@@ -731,20 +781,20 @@ function showContextSuggestionPopup(userPrompt, suggestions) {
             font-weight: 500;
             cursor: pointer;
             transition: background-color 0.2s;
-          " onmouseover="this.style.backgroundColor='#2563eb';" onmouseout="this.style.backgroundColor='#3b82f6';">
+          " onmouseover="this.style.backgroundColor='#4338ca';" onmouseout="this.style.backgroundColor='#4f46e5';">
             Insert into AI
           </button>
           <button id="velto-copy-btn" style="
             padding: 8px 16px;
-            border: 1px solid #d1d5db;
-            background: white;
-            color: #374151;
+            border: 1px solid #374151;
+            background: rgba(31,41,55,0.5);
+            color: #e5e7eb;
             border-radius: 6px;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
-          " onmouseover="this.style.backgroundColor='#f9fafb';" onmouseout="this.style.backgroundColor='white';">
+          " onmouseover="this.style.backgroundColor='rgba(31,41,55,0.7)';" onmouseout="this.style.backgroundColor='rgba(31,41,55,0.5)';">
             Copy
           </button>
         </div>
@@ -786,7 +836,7 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
     // Show loading state
     const promptVersionDiv = document.getElementById('velto-prompt-version');
     const promptContent = document.getElementById('velto-prompt-content');
-    promptContent.textContent = 'Generating prompt version...';
+    promptContent.innerHTML = '<p style="margin:0; color:#d1d5db;"><em>Generating prompt version...</em></p>';
     promptVersionDiv.style.display = 'block';
     
     // Use chrome.runtime.sendMessage to avoid CORS issues
@@ -800,7 +850,8 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
     
     if (response?.success && response.data?.promptVersion) {
       const promptVersion = response.data.promptVersion;
-      promptContent.textContent = promptVersion;
+      // Pretty render using Markdown-to-HTML
+      promptContent.innerHTML = renderMarkdown(promptVersion);
       
       // Add event listeners for buttons
       document.getElementById('velto-insert-btn').addEventListener('click', () => {
@@ -822,11 +873,11 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
       });
       
     } else {
-      promptContent.textContent = 'Failed to generate prompt version';
+      promptContent.innerHTML = '<p style="margin:0; color:#fca5a5;">Failed to generate prompt version</p>';
     }
   } catch (error) {
     console.error('Failed to generate prompt version:', error);
-    document.getElementById('velto-prompt-content').textContent = 'Error generating prompt version';
+    document.getElementById('velto-prompt-content').innerHTML = '<p style="margin:0; color:#fca5a5;">Error generating prompt version</p>';
   }
 }
 
