@@ -9,6 +9,7 @@ import { NavBar } from "@/components/ui/tubelight-navbar"
 import AnimatedGradientBackground from "@/components/ui/background";
 import { AnimatePresence, motion, useInView, Variants } from "framer-motion";
 import { useRef } from "react";
+import { useRouter } from "next/navigation"
 
 const navItems = [
   { name: "Home", url: "#home", icon: Home },
@@ -18,6 +19,7 @@ const navItems = [
 ]
 
 export default function TuringLanding() {
+  const router = useRouter();
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden relative">
       {/* Subtle blue background gradient overlays */}
@@ -54,7 +56,7 @@ export default function TuringLanding() {
               Stop re-explaining, re-pasting, and re-debugging across AI tools. One brain across all your AI workflows.
             </p>
             <div className="flex gap-5 items-center">
-              <button className="flex items-center gap-2.5 bg-[#0084ff] text-white py-3.5 px-7 rounded-md text-base font-medium hover:bg-[#0066cc] hover:translate-x-0.5 transition-all duration-200">
+              <button onClick={() => router.push("/dashboard")} className="flex items-center gap-2.5 bg-[#0084ff] text-white py-3.5 px-7 rounded-md text-base font-medium hover:bg-[#0066cc] hover:translate-x-0.5 transition-all duration-200">
                 Get Started
                 <ArrowRight className="w-5 h-5" />
               </button>
