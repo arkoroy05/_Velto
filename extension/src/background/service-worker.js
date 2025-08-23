@@ -69,6 +69,30 @@ async function syncWithBackend() {
   return await readAllContexts();
 }
 
+// Helper function to map tool names to valid backend source types
+function mapToolToSourceType(tool) {
+  if (!tool) return 'manual';
+  
+  const toolLower = tool.toLowerCase();
+  
+  // Map to valid backend enum values
+  switch (toolLower) {
+    case 'claude':
+      return 'claude';
+    case 'cursor':
+      return 'cursor';
+    case 'copilot':
+      return 'copilot';
+    case 'windsurf':
+      return 'windsurf';
+    case 'chatgpt':
+    case 'gpt':
+      return 'manual'; // ChatGPT not in backend enum, use manual
+    default:
+      return 'manual';
+  }
+}
+
 // ----- Commands (hotkeys) -----
 async function isTabMonitoring(tabId) {
   return await new Promise((resolve) => {
@@ -139,7 +163,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             content: content,
             type: type || 'conversation',
             source: source || {
-              type: tool?.toLowerCase() || 'manual',
+              type: mapToolToSourceType(tool) || 'manual',
               agentId: tool || 'Unknown',
               timestamp: new Date()
             },
@@ -149,6 +173,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               tool: tool || 'Unknown'
             }
           };
+
+          // Add project ID if we have a selected project (not inbox)
+          if (targetId && targetId !== 'inbox') {
+            contextData.projectId = targetId;
+          }
 
           // Add conversation data if available
           if (conversation) {
@@ -248,7 +277,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: true, contexts });
         } catch (error) {
           sendResponse({ ok: false, error: error.message });
-        }
+        } 
         return;
       }
 

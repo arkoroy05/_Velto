@@ -144,7 +144,7 @@ function saveConversationContext() {
     },
     metadata: {
       url: location.href,
-      host: location.host,
+      host: location.href,
       tool: 'Claude',
       userMessageCount: conversationContext.userMessages.length,
       aiResponseCount: conversationContext.aiResponses.length,
@@ -160,12 +160,15 @@ function saveConversationContext() {
   };
 
   // Send to background for storage
+  console.log('[Velto] 📤 Sending conversation context to background:', conversationData);
+  
   chrome.runtime.sendMessage({
     type: MSG.CONTEXTS_CREATE,
     payload: conversationData,
   }, (res) => {
+    console.log('[Velto] 📥 Response from background:', res);
     if (res?.ok) {
-      console.log('[Velto] Conversation context saved:', res);
+      console.log('[Velto] ✅ Conversation context saved successfully:', res);
       // Reset conversation context
       conversationContext = {
         userMessages: [],
@@ -174,7 +177,7 @@ function saveConversationContext() {
         startTime: Date.now()
       };
     } else {
-      console.warn('[Velto] Failed to save conversation context:', res);
+      console.warn('[Velto] ❌ Failed to save conversation context:', res);
     }
   });
 }
@@ -392,3 +395,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 });
+
+// Auto-start conversation monitoring when page loads
+console.log('[Velto] 🚀 Auto-starting Claude conversation monitoring...');
+setTimeout(() => {
+  startConversationMonitoring();
+}, 2000); // Wait 2 seconds for page to fully load

@@ -140,14 +140,14 @@ function saveConversationContext() {
     content: buildConversationContent(),
     type: 'conversation',
     source: {
-      type: 'chatgpt',
+      type: 'manual',
       agentId: 'ChatGPT',
       sessionId: conversationContext.sessionId,
       timestamp: new Date()
     },
     metadata: {
       url: location.href,
-      host: location.host,
+      host: location.href,
       tool: 'ChatGPT',
       userMessageCount: conversationContext.userMessages.length,
       aiResponseCount: conversationContext.aiResponses.length,
@@ -387,3 +387,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 });
+
+// Auto-start conversation monitoring when page loads
+console.log('[Velto] 🚀 Auto-starting ChatGPT conversation monitoring...');
+setTimeout(() => {
+  startConversationMonitoring();
+}, 2000); // Wait 2 seconds for page to fully load
