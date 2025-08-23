@@ -844,7 +844,7 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
     // Show loading state
     const promptVersionDiv = document.getElementById('velto-prompt-version');
     const promptContent = document.getElementById('velto-prompt-content');
-    promptContent.innerHTML = '<p style="margin:0; color:#d1d5db;"><em>Generating prompt version...</em></p>';
+    promptContent.textContent = 'Generating prompt version...';
     promptVersionDiv.style.display = 'block';
     
     // Use chrome.runtime.sendMessage to avoid CORS issues
@@ -852,40 +852,74 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
       type: 'GENERATE_PROMPT_VERSION',
       payload: {
         contextId: contextId,
-        userPrompt: userPrompt
+        userPrompt: userPrompt,
+        relatedContexts: [] // Empty array for now, can be enhanced later
       }
     });
     
     if (response?.success && response.data?.promptVersion) {
       const promptVersion = response.data.promptVersion;
-      // Pretty render using Markdown-to-HTML
-      promptContent.innerHTML = renderMarkdown(promptVersion);
+      const preservationMetrics = response.data.preservationMetrics || {};
+      const relatedContexts = response.data.relatedContexts || [];
       
-      // Add event listeners for buttons
-      document.getElementById('velto-insert-btn').addEventListener('click', () => {
+      // Display the prompt version
+      promptContent.textContent = promptVersion;
+      
+      // Display preservation metrics if available
+      if (preservationMetrics.overallPreservation !== undefined) {
+        const metricsDiv = document.createElement('div');
+        metricsDiv.style.cssText = 'margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; font-size: 12px;';
+        metricsDiv.innerHTML = `
+          <strong>Context Preservation:</strong> ${Math.round(preservationMetrics.overallPreservation * 100)}%<br>
+          <strong>Information Retention:</strong> ${Math.round(preservationMetrics.informationRetention * 100)}%<br>
+          <strong>Related Contexts Found:</strong> ${relatedContexts.length}
+        `;
+        promptVersionDiv.appendChild(metricsDiv);
+      }
+      
+      // Display related contexts if available
+      if (relatedContexts.length > 0) {
+        const contextsDiv = document.createElement('div');
+        contextsDiv.style.cssText = 'margin-top: 10px; padding: 8px; background: #e8f4fd; border-radius: 4px; font-size: 12px;';
+        contextsDiv.innerHTML = `
+          <strong>Related Contexts:</strong><br>
+          ${relatedContexts.slice(0, 3).map(ctx => 
+            `• ${ctx.title || 'Untitled'} (${Math.round(ctx.relevance * 100)}% relevant)`
+          ).join('<br>')}
+          ${relatedContexts.length > 3 ? `<br><em>... and ${relatedContexts.length - 3} more</em>` : ''}
+        `;
+        promptVersionDiv.appendChild(contextsDiv);
+      }
+      
+      // Set up "Insert into AI" and "Copy" buttons
+      const insertButton = document.getElementById('velto-insert-btn');
+      const copyButton = document.getElementById('velto-copy-btn');
+      
+      insertButton.onclick = () => {
         insertPromptIntoAI(promptVersion);
         popup.remove();
-      });
+      };
       
-      document.getElementById('velto-copy-btn').addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(promptVersion);
-          const btn = document.getElementById('velto-copy-btn');
-          btn.textContent = 'Copied!';
+      copyButton.onclick = () => {
+        navigator.clipboard.writeText(promptVersion).then(() => {
+          copyButton.textContent = 'Copied!';
           setTimeout(() => {
-            btn.textContent = 'Copy';
+            copyButton.textContent = 'Copy';
           }, 2000);
-        } catch (error) {
-          console.error('Failed to copy to clipboard:', error);
-        }
-      });
+        });
+      };
+      
+      console.log('[Velto] ✅ Prompt version generated successfully');
+      console.log('[Velto] 📊 Preservation metrics:', preservationMetrics);
+      console.log('[Velto] 🔗 Related contexts:', relatedContexts);
       
     } else {
-      promptContent.innerHTML = '<p style="margin:0; color:#fca5a5;">Failed to generate prompt version</p>';
+      promptContent.textContent = 'Failed to generate prompt version. Please try again.';
+      console.error('[Velto] ❌ Prompt version generation failed:', response);
     }
   } catch (error) {
-    console.error('Failed to generate prompt version:', error);
-    document.getElementById('velto-prompt-content').innerHTML = '<p style="margin:0; color:#fca5a5;">Error generating prompt version</p>';
+    promptContent.textContent = 'Error generating prompt version. Please try again.';
+    console.error('[Velto] ❌ Error generating prompt version:', error);
   }
 }
 

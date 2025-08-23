@@ -89,12 +89,13 @@ class ApiService {
   }
 
   // Prompt Version API - Generate injectable prompts from contexts
-  async generatePromptVersion(contextId, userPrompt) {
+  async generatePromptVersion(contextId, userPrompt, relatedContexts = []) {
     return this.request(`/contexts/${contextId}/prompt-version`, {
       method: 'POST',
       body: JSON.stringify({
         userId: this.userId,
-        userPrompt: userPrompt
+        userPrompt: userPrompt,
+        relatedContexts: relatedContexts
       })
     })
   }

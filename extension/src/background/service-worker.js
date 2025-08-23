@@ -425,16 +425,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case MSG.GENERATE_PROMPT_VERSION: {
         console.log('[Velto] 🔍 Generate prompt version request:', message.payload);
         try {
-          const { contextId, userPrompt } = message.payload;
+          const { contextId, userPrompt, relatedContexts = [] } = message.payload;
           
-          // Call the prompt version API
-          const promptResponse = await apiService.generatePromptVersion(contextId, userPrompt);
+          // Call the prompt version API with all required parameters
+          const promptResponse = await apiService.generatePromptVersion(contextId, userPrompt, relatedContexts);
           
           if (promptResponse.success && promptResponse.data) {
             sendResponse({ 
               success: true, 
               data: {
-                promptVersion: promptResponse.data.promptVersion || promptResponse.data.content || 'No prompt version generated'
+                promptVersion: promptResponse.data.promptVersion || 'No prompt version generated',
+                preservationMetrics: promptResponse.data.preservationMetrics || {},
+                relatedContexts: promptResponse.data.relatedContexts || []
               }
             });
           } else {
@@ -444,13 +446,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
           }
         } catch (error) {
-          console.error('[Velto] Prompt version generation error:', error);
+          console.error('[Velto] ❌ Error generating prompt version:', error);
           sendResponse({ 
             success: false, 
-            error: error.message
+            error: 'Failed to generate prompt version'
           });
         }
-        return;
+        return true; // Keep message channel open for async response
       }
 
       case 'FETCH_ALL_CONTEXTS': {
