@@ -1,9 +1,10 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
   FileText,
   CheckCircle,
@@ -15,6 +16,7 @@ import {
   Play,
 } from "lucide-react"
 import type { Context, AnalysisResult, PromptVersion, NavigationItem } from "@/components/dashboard/types"
+import ContextDetailView from "@/components/dashboard/ContextDetailView"
 
 interface DashboardHomeProps {
   contexts: Context[]
@@ -31,8 +33,21 @@ export default function DashboardHome({
   isLoading,
   onSetActiveView,
 }: DashboardHomeProps) {
+  const [openContextId, setOpenContextId] = useState<string | null>(null)
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Context Detail Modal */}
+      <Dialog open={!!openContextId} onOpenChange={(o) => !o && setOpenContextId(null)}>
+        {openContextId && (
+          <DialogContent className="sm:max-w-[95vw] w-[95vw] h-[95vh] bg-[#0a0a0a] border-[#333333] rounded-2xl p-0 overflow-hidden">
+            <DialogTitle className="sr-only">Context Details</DialogTitle>
+            <ContextDetailView
+              contextId={openContextId}
+              onBack={() => setOpenContextId(null)}
+            />
+          </DialogContent>
+        )}
+      </Dialog>
       {/* Hero Section */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-white mb-2">Welcome back, Developer</h1>
@@ -135,10 +150,10 @@ export default function DashboardHome({
         </div>
       </div>
 
-      {/* Memory Threads */}
+      {/* Active Projects */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Memory Threads</h2>
+          <h2 className="text-lg font-semibold text-white">Active Projects</h2>
           <Button
             variant="ghost"
             size="sm"
@@ -192,7 +207,12 @@ export default function DashboardHome({
                         {context.created} • {context.snippets} snippets
                       </span>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setOpenContextId(context.id)}
+                        >
                           <Play className="w-3 h-3 mr-1" />
                           Replay
                         </Button>

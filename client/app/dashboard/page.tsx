@@ -895,14 +895,6 @@ export default function VeltoDashboard() {
             onAction={handleContextAction}
           />
         )
-      case "analysis":
-        return renderAnalysisResults()
-      case "prompts":
-        return renderPromptVersions()
-      case "analytics":
-        return renderAnalytics()
-      case "settings":
-        return renderSettings()
       default:
         return (
           <DashboardHome
