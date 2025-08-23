@@ -10,6 +10,19 @@ export default function Capture() {
   const [lastSync, setLastSync] = useState(null)
   const [monitoring, setMonitoring] = useState(false)
 
+  function queryActiveTab() {
+    return new Promise((resolve) => {
+      try {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (chrome.runtime.lastError) return resolve(null)
+          resolve(Array.isArray(tabs) && tabs.length ? tabs[0] : null)
+        })
+      } catch (_) {
+        resolve(null)
+      }
+    })
+  }
+
   useEffect(() => {
     // read current inbox count for later diff
     chrome.runtime.sendMessage({ type: 'CONTEXTS_LIST' }, (res) => {
@@ -22,21 +35,16 @@ export default function Capture() {
     checkBackendStatus()
 
     // Query current capture monitoring state on active tab
-    (async () => {
-      try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-        if (!tab?.id) return
-        chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_STATE_GET }, (res) => {
-          if (chrome.runtime.lastError) {
-            setMonitoring(false)
-            return
-          }
-          setMonitoring(!!res?.monitoring)
-        })
-      } catch (_) {
-        setMonitoring(false)
-      }
-    })()
+    queryActiveTab().then((tab) => {
+      if (!tab?.id) return
+      chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_STATE_GET }, (res) => {
+        if (chrome.runtime.lastError) {
+          setMonitoring(false)
+          return
+        }
+        setMonitoring(!!res?.monitoring)
+      })
+    })
   }, [])
 
   async function checkBackendStatus() {
@@ -57,7 +65,7 @@ export default function Capture() {
     try {
       setStatus('capturing')
       setMessage('Capturing selection from the active tab…')
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      const tab = await queryActiveTab()
       if (!tab?.id) throw new Error('No active tab')
 
       await new Promise((resolve) => {
@@ -104,7 +112,7 @@ export default function Capture() {
   async function handleToggleClick() {
     if (monitoring) {
       try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        const tab = await queryActiveTab()
         if (tab?.id) {
           await new Promise((resolve) => {
             chrome.tabs.sendMessage(tab.id, { type: MSG.CAPTURE_STOP }, () => resolve())

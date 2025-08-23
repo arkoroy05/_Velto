@@ -29,15 +29,23 @@ export default function App() {
   const { pathname } = useLocation()
   // simple auth gate
   useEffect(() => {
-    chrome.storage.local.get(['velto_settings']).then((res) => {
-      const loggedIn = !!res?.velto_settings?.loggedIn
-      if (!loggedIn && pathname !== '/login') {
-        navigate('/login', { replace: true })
-      } else if (loggedIn && pathname === '/') {
-        // Dashboard is already at root, no need to redirect
-        // navigate('/dashboard', { replace: true })
-      }
-    })
+    try {
+      chrome.storage.local.get(['velto_settings'], (res) => {
+        if (chrome.runtime.lastError) {
+          // If storage fails, route to login to keep UX sane
+          if (pathname !== '/login') navigate('/login', { replace: true })
+          return
+        }
+        const loggedIn = !!res?.velto_settings?.loggedIn
+        if (!loggedIn && pathname !== '/login') {
+          navigate('/login', { replace: true })
+        } else if (loggedIn && pathname === '/') {
+          // Dashboard is already at root
+        }
+      })
+    } catch (_) {
+      if (pathname !== '/login') navigate('/login', { replace: true })
+    }
   }, [navigate, pathname])
 
   return (
