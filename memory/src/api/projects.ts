@@ -215,7 +215,9 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
         isPublic: project.isPublic,
         tags: project.tags,
         settings: project.settings,
-        collaborators: project.collaborators
+        collaborators: project.collaborators,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt
       },
       message: 'Project created successfully'
     })

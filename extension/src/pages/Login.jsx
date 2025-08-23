@@ -35,8 +35,10 @@ export default function Login() {
       } else {
         setBackendStatus('disconnected')
         setBackendInfo(null)
+        console.warn('Backend connection failed:', result.error)
       }
     } catch (error) {
+      console.error('Backend connection test failed:', error)
       setBackendStatus('disconnected')
       setBackendInfo(null)
     }

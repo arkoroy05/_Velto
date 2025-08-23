@@ -62,11 +62,25 @@ let lastUserMessage = '';
 let isMonitoring = false;
 let inputObserver = null;
 let responseObserver = null;
+let conversationContext = {
+  userMessages: [],
+  aiResponses: [],
+  sessionId: Date.now().toString(36),
+  startTime: Date.now()
+};
 
 function startConversationMonitoring() {
   if (isMonitoring) return;
   isMonitoring = true;
   console.log('[Velto] 🎯 Started monitoring Claude conversations');
+  
+  // Reset conversation context
+  conversationContext = {
+    userMessages: [],
+    aiResponses: [],
+    sessionId: Date.now().toString(36),
+    startTime: Date.now()
+  };
 
   // Monitor user input
   monitorUserInput();
@@ -79,6 +93,11 @@ function stopConversationMonitoring() {
   if (!isMonitoring) return;
   isMonitoring = false;
   console.log('[Velto] ⏹️ Stopped monitoring Claude conversations');
+
+  // Save final conversation context if we have content
+  if (conversationContext.userMessages.length > 0 || conversationContext.aiResponses.length > 0) {
+    saveConversationContext();
+  }
 
   try { inputObserver?.disconnect(); } catch (_) {}
   try { responseObserver?.disconnect(); } catch (_) {}
@@ -105,6 +124,81 @@ function stopConversationMonitoring() {
       delete el._veltoOnSendClick;
     } catch (_) {}
   });
+}
+
+function saveConversationContext() {
+  if (conversationContext.userMessages.length === 0 && conversationContext.aiResponses.length === 0) {
+    return;
+  }
+
+  // Create a comprehensive conversation context
+  const conversationData = {
+    title: `Claude Conversation - ${new Date().toLocaleString()}`,
+    content: buildConversationContent(),
+    type: 'conversation',
+    source: {
+      type: 'claude',
+      agentId: 'Claude',
+      sessionId: conversationContext.sessionId,
+      timestamp: new Date()
+    },
+    metadata: {
+      url: location.href,
+      host: location.host,
+      tool: 'Claude',
+      userMessageCount: conversationContext.userMessages.length,
+      aiResponseCount: conversationContext.aiResponses.length,
+      sessionDuration: Date.now() - conversationContext.startTime
+    },
+    conversation: {
+      userMessages: conversationContext.userMessages,
+      aiResponses: conversationContext.aiResponses,
+      sessionId: conversationContext.sessionId,
+      startTime: conversationContext.startTime,
+      endTime: Date.now()
+    }
+  };
+
+  // Send to background for storage
+  chrome.runtime.sendMessage({
+    type: MSG.CONTEXTS_CREATE,
+    payload: conversationData,
+  }, (res) => {
+    if (res?.ok) {
+      console.log('[Velto] Conversation context saved:', res);
+      // Reset conversation context
+      conversationContext = {
+        userMessages: [],
+        aiResponses: [],
+        sessionId: Date.now().toString(36),
+        startTime: Date.now()
+      };
+    } else {
+      console.warn('[Velto] Failed to save conversation context:', res);
+    }
+  });
+}
+
+function buildConversationContent() {
+  let content = '';
+  
+  // Add user messages
+  if (conversationContext.userMessages.length > 0) {
+    content += '## User Messages\n\n';
+    conversationContext.userMessages.forEach((msg, index) => {
+      content += `**Message ${index + 1}** (${new Date(msg.timestamp).toLocaleTimeString()}):\n${msg.content}\n\n`;
+    });
+  }
+  
+  // Add AI responses
+  if (conversationContext.aiResponses.length > 0) {
+    content += '## AI Responses\n\n';
+    conversationContext.aiResponses.forEach((resp, index) => {
+      content += `**Response ${index + 1}** (${new Date(resp.timestamp).toLocaleTimeString()}):\n${resp.content}\n\n`;
+    });
+  }
+  
+  return content.trim();
 }
 
 function monitorUserInput() {
@@ -160,6 +254,13 @@ function setupInputListener(inputElement) {
       if (message.trim() && message !== lastUserMessage) {
         lastUserMessage = message.trim();
         console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
+        
+        // Add to conversation context
+        conversationContext.userMessages.push({
+          content: lastUserMessage,
+          timestamp: Date.now(),
+          type: 'user_input'
+        });
       }
     }
   };
@@ -174,6 +275,13 @@ function setupInputListener(inputElement) {
       if (message.trim() && message !== lastUserMessage) {
         lastUserMessage = message.trim();
         console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
+        
+        // Add to conversation context
+        conversationContext.userMessages.push({
+          content: lastUserMessage,
+          timestamp: Date.now(),
+          type: 'form_submit'
+        });
       }
     };
     inputElement._veltoForm = form;
@@ -190,6 +298,13 @@ function setupInputListener(inputElement) {
         if (message.trim() && message !== lastUserMessage) {
           lastUserMessage = message.trim();
           console.log('[Velto] 👤 USER INPUT:', lastUserMessage);
+          
+          // Add to conversation context
+          conversationContext.userMessages.push({
+            content: lastUserMessage,
+            timestamp: Date.now(),
+            type: 'button_click'
+          });
         }
       }, 100);
     };
@@ -227,6 +342,14 @@ function monitorAIResponses() {
                   const responseText = responseElement.innerText || responseElement.textContent || '';
                   if (responseText.trim()) {
                     console.log('[Velto] 🤖 CLAUDE RESPONSE:', responseText.trim());
+                    
+                    // Add to conversation context
+                    conversationContext.aiResponses.push({
+                      content: responseText.trim(),
+                      timestamp: Date.now(),
+                      type: 'ai_response',
+                      element: responseElement
+                    });
                   }
                 }, 1000);
               }

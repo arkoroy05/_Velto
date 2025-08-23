@@ -21,6 +21,8 @@ export default function Dashboard() {
 
   async function loadDashboardData() {
     setLoading(true)
+    setError('')
+    
     try {
       // Check backend connection
       const connectionTest = await new Promise((resolve) => {
@@ -71,7 +73,20 @@ export default function Dashboard() {
         })
       }
     } catch (error) {
+      console.error('Failed to load dashboard data:', error)
       setError('Failed to load dashboard data: ' + error.message)
+      
+      // Fallback to local data
+      chrome.runtime.sendMessage({ type: 'CONTEXTS_LIST' }, (res) => {
+        const items = res?.items || []
+        const totalSnippets = items.reduce((sum, item) => sum + (item.snippetCount || 0), 0)
+        setStats({
+          totalContexts: items.length,
+          totalSnippets,
+          recentActivity: 0,
+          topTools: []
+        })
+      })
     } finally {
       setLoading(false)
     }

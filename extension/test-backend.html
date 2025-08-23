@@ -85,6 +85,8 @@
         <button onclick="testCreateContext()">Create Context</button>
         <button onclick="testSearch()">Search Contexts</button>
         <button onclick="testAnalytics()">Get Analytics</button>
+        <button onclick="testGetProjects()">Get Projects</button>
+        <button onclick="testCreateProject()">Create Project</button>
         <div id="api-result" class="result" style="display: none;"></div>
     </div>
 
@@ -224,6 +226,40 @@
         async function testAnalytics() {
             try {
                 const result = await makeRequest('/analytics');
+                showResult('api-result', result, true);
+            } catch (error) {
+                showResult('api-result', { error: error.message }, false);
+            }
+        }
+
+        async function testGetProjects() {
+            try {
+                const result = await makeRequest('/projects');
+                showResult('api-result', result, true);
+            } catch (error) {
+                showResult('api-result', { error: error.message }, false);
+            }
+        }
+
+        async function testCreateProject() {
+            try {
+                const testProject = {
+                    name: 'Test Project from Extension',
+                    description: 'This is a test project created by the Velto extension test page.',
+                    isPublic: false,
+                    tags: ['test', 'extension'],
+                    settings: {
+                        autoCategorize: true,
+                        chunkSize: 1000,
+                        maxTokens: 4000,
+                        aiModel: 'gemini'
+                    }
+                };
+
+                const result = await makeRequest('/projects', {
+                    method: 'POST',
+                    body: JSON.stringify(testProject)
+                });
                 showResult('api-result', result, true);
             } catch (error) {
                 showResult('api-result', { error: error.message }, false);

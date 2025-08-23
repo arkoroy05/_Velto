@@ -52,19 +52,7 @@ export default function Capture() {
     })
 
     // Load projects and last selected project
-    try {
-      chrome.storage.local.get(['velto_projects', 'velto_selected_project', 'velto_capture_pick'], (res) => {
-        const items = Array.isArray(res?.velto_projects) ? res.velto_projects : []
-        setProjects(items)
-        const sel = res?.velto_selected_project || 'inbox'
-        setSelectedProject(sel)
-        if (res?.velto_capture_pick) {
-          setPromptPick(true)
-          // clear the flag so it doesn't loop
-          chrome.storage.local.set({ velto_capture_pick: false })
-        }
-      })
-    } catch (_) {}
+    loadProjectsAndSelectedProject()
   }, [])
 
   // Recompute baseline count whenever the selected project changes
@@ -183,6 +171,62 @@ export default function Capture() {
       }
     } catch (error) {
       setMessage('Sync failed: ' + error.message)
+    }
+  }
+
+  async function loadProjectsAndSelectedProject() {
+    try {
+      // Try to load projects from backend first
+      const projectsResponse = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          type: 'API_REQUEST',
+          payload: { method: 'GET', endpoint: 'projects' }
+        }, resolve)
+      })
+      
+      if (projectsResponse.success && projectsResponse.data) {
+        const backendProjects = projectsResponse.data.map(project => ({
+          id: project._id || project.id,
+          name: project.name,
+          description: project.description,
+          createdAt: new Date(project.createdAt).getTime(),
+          backendId: project._id || project.id
+        }))
+        setProjects(backendProjects)
+        
+        // Store locally for offline access
+        chrome.storage.local.set({ velto_projects: backendProjects })
+      } else {
+        // Fallback to local storage
+        chrome.storage.local.get(['velto_projects'], (res) => {
+          const items = Array.isArray(res?.velto_projects) ? res.velto_projects : []
+          setProjects(items)
+        })
+      }
+      
+      // Load selected project
+      chrome.storage.local.get(['velto_selected_project', 'velto_capture_pick'], (res) => {
+        const sel = res?.velto_selected_project || 'inbox'
+        setSelectedProject(sel)
+        if (res?.velto_capture_pick) {
+          setPromptPick(true)
+          // clear the flag so it doesn't loop
+          chrome.storage.local.set({ velto_capture_pick: false })
+        }
+      })
+    } catch (e) {
+      console.error('Failed to load projects:', e)
+      // Fallback to local storage
+      chrome.storage.local.get(['velto_projects', 'velto_selected_project', 'velto_capture_pick'], (res) => {
+        const items = Array.isArray(res?.velto_projects) ? res.velto_projects : []
+        setProjects(items)
+        const sel = res?.velto_selected_project || 'inbox'
+        setSelectedProject(sel)
+        if (res?.velto_capture_pick) {
+          setPromptPick(true)
+          chrome.storage.local.set({ velto_capture_pick: false })
+        }
+      })
     }
   }
 

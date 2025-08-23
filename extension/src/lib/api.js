@@ -98,6 +98,42 @@ class ApiService {
     return this.request(`/analytics?${queryString}`)
   }
 
+  // Projects API
+  async getProjects(params = {}) {
+    const queryString = new URLSearchParams({
+      userId: this.userId,
+      ...params
+    }).toString()
+    
+    return this.request(`/projects?${queryString}`)
+  }
+
+  async createProject(projectData) {
+    return this.request('/projects', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...projectData,
+        userId: this.userId
+      })
+    })
+  }
+
+  async updateProject(projectId, updateData) {
+    return this.request(`/projects/${projectId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...updateData,
+        userId: this.userId
+      })
+    })
+  }
+
+  async deleteProject(projectId) {
+    return this.request(`/projects/${projectId}`, {
+      method: 'DELETE'
+    })
+  }
+
   // Health check
   async healthCheck() {
     const url = `${this.baseUrl.replace('/api/v1', '')}/health`

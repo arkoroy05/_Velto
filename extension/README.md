@@ -5,11 +5,14 @@ A Chrome extension that provides shared memory for AI tools, allowing you to cap
 ## ✨ Features
 
 - **Context Capture**: Select text from AI tools and save it to your personal knowledge base
+- **Conversation Monitoring**: Automatically capture full conversations including user prompts and AI responses
 - **Backend Integration**: Connects to Velto Memory backend for persistent storage and AI-powered features
 - **Smart Search**: Find and retrieve stored contexts using semantic search
+- **Project Management**: Create and manage projects to organize your contexts
 - **Analytics Dashboard**: View your context usage statistics and insights
 - **Cross-Platform**: Works with ChatGPT, Claude, Cursor, and other AI tools
 - **Offline Support**: Local storage fallback when backend is unavailable
+- **AI Analysis**: Automatic context analysis and insights generation
 
 ## 🚀 Quick Start
 
@@ -50,13 +53,30 @@ npm run build
 5. Verify the snippet is saved and shows in the preview
 6. Check that it's synced to the backend (green status)
 
-### Test 3: Search and Retrieval
+### Test 3: Conversation Monitoring
+1. Go to [ChatGPT](https://chat.openai.com) or [Claude](https://claude.ai)
+2. Open the Velto extension and go to the Capture tab
+3. Click "Capture from current tab" to start monitoring
+4. Type a message and press Enter
+5. Wait for the AI response
+6. Stop monitoring by clicking "End Capture"
+7. Check that the full conversation was captured in the backend
+
+### Test 4: Project Management
+1. Go to the Projects tab in the extension
+2. Create a new project with a name and description
+3. Verify the project appears in the list
+4. Check that it's synced with the backend
+5. Switch to the Capture tab and select your project
+6. Capture some context and verify it goes to the selected project
+
+### Test 5: Search and Retrieval
 1. Go to the Search tab in the extension
 2. Search for contexts using keywords from your captured content
 3. Click on search results to view full context details
 4. Verify that contexts are being retrieved from the backend
 
-### Test 4: Dashboard Analytics
+### Test 6: Dashboard Analytics
 1. Go to the Dashboard tab
 2. Check that statistics are displayed (total contexts, snippets)
 3. Verify recent contexts are shown

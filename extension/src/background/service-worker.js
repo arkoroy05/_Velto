@@ -122,7 +122,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       case MSG.CONTEXTS_CREATE: {
-        const { content, title, contextId, url, host, tool } = message.payload || {};
+        const { content, title, contextId, url, host, tool, type, source, metadata, conversation } = message.payload || {};
         if (!content || typeof content !== 'string' || !content.trim()) {
           sendResponse({ ok: false, error: 'Empty content' });
           return;
@@ -132,21 +132,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // Determine target context: use payload-provided contextId or selected project, else inbox
           const sel = await chrome.storage.local.get(['velto_selected_project']);
           const targetId = contextId || sel?.velto_selected_project || 'inbox';
-          // Create context in backend
-          const backendContext = await apiService.createContext({
+          
+          // Create enhanced context data for backend
+          const contextData = {
             title: title || (content.split('\n')[0]?.slice(0, 80) || 'Snippet'),
             content: content,
-            type: 'conversation',
-            source: {
+            type: type || 'conversation',
+            source: source || {
               type: tool?.toLowerCase() || 'manual',
-              agentId: tool || 'Unknown'
+              agentId: tool || 'Unknown',
+              timestamp: new Date()
             },
-            metadata: {
+            metadata: metadata || {
               url: url || sender?.tab?.url || '',
               host: host || sender?.tab?.url || '',
               tool: tool || 'Unknown'
             }
-          });
+          };
+
+          // Add conversation data if available
+          if (conversation) {
+            contextData.conversation = conversation;
+          }
+
+          // Create context in backend
+          const backendContext = await apiService.createContext(contextData);
 
           if (backendContext.success) {
             // Also store locally for offline access
@@ -165,6 +175,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               source: host || sender?.tab?.url || '',
               tool: tool || 'Unknown',
               timestamp: Date.now(),
+              type: type || 'conversation',
+              conversation: conversation || null
             };
             
             ctx.snippets.unshift(snippet);
@@ -196,6 +208,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             source: host || sender?.tab?.url || '',
             tool: tool || 'Unknown',
             timestamp: Date.now(),
+            type: type || 'conversation',
+            conversation: conversation || null
           };
           
           ctx.snippets.unshift(snippet);
@@ -251,6 +265,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'API_REQUEST': {
         try {
           const { method, endpoint, data, params } = message.payload
+          console.log('[Velto] API Request:', { method, endpoint, data, params })
+          
           let result
           
           switch (method) {
@@ -263,6 +279,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 result = await apiService.searchContexts(params?.query || '', params || {})
               } else if (endpoint === 'analytics') {
                 result = await apiService.getAnalytics(params || {})
+              } else if (endpoint === 'projects') {
+                result = await apiService.getProjects(params || {})
               } else {
                 throw new Error(`Unknown GET endpoint: ${endpoint}`)
               }
@@ -271,6 +289,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             case 'POST':
               if (endpoint === 'contexts') {
                 result = await apiService.createContext(data)
+              } else if (endpoint === 'projects') {
+                result = await apiService.createProject(data)
               } else {
                 throw new Error(`Unknown POST endpoint: ${endpoint}`)
               }
@@ -280,8 +300,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               throw new Error(`Unsupported method: ${method}`)
           }
           
+          console.log('[Velto] API Response:', result)
           sendResponse({ success: true, data: result })
         } catch (error) {
+          console.error('[Velto] API Request failed:', error)
           sendResponse({ success: false, error: error.message })
         }
         return

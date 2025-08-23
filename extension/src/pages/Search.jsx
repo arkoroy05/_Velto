@@ -37,9 +37,13 @@ export default function Search() {
       
       if (response.success && response.data) {
         setRecentContexts(response.data)
+      } else {
+        console.warn('Failed to load recent contexts:', response.error)
+        setRecentContexts([])
       }
     } catch (error) {
       console.error('Failed to load recent contexts:', error)
+      setRecentContexts([])
     }
   }
 
@@ -65,6 +69,7 @@ export default function Search() {
         setResults([])
       }
     } catch (error) {
+      console.error('Search failed:', error)
       setError('Search failed: ' + error.message)
       setResults([])
     } finally {
@@ -74,23 +79,26 @@ export default function Search() {
 
   async function handleContextClick(contextId) {
     try {
-      // For now, we'll get all contexts and find the one we need
+      // Get context details from backend
       const response = await new Promise((resolve) => {
         chrome.runtime.sendMessage({
           type: 'API_REQUEST',
-          payload: { method: 'GET', endpoint: 'contexts', params: { limit: 100 } }
+          payload: { method: 'GET', endpoint: 'contexts', params: { contextId } }
         }, resolve)
       })
       
       if (response.success && response.data) {
-        const context = response.data.find(ctx => ctx._id === contextId || ctx.id === contextId)
+        const context = response.data
         if (context) {
           // For now, just show an alert with the context details
           // In a real app, you'd navigate to a detail view
           alert(`Context: ${context.title}\n\n${context.content}`)
         }
+      } else {
+        setError('Failed to load context: ' + (response.error || 'Unknown error'))
       }
     } catch (error) {
+      console.error('Failed to load context:', error)
       setError('Failed to load context: ' + error.message)
     }
   }
