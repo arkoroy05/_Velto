@@ -11,6 +11,7 @@ import Settings from './pages/Settings.jsx'
 import Login from './pages/Login.jsx'
 import Search from './pages/Search.jsx'
 import Capture from './pages/Capture.jsx'
+import Projets from './pages/Projets.jsx'
 
 
 const router = createHashRouter([
@@ -24,6 +25,7 @@ const router = createHashRouter([
       { path: 'onboarding', element: <Onboarding /> },
       { path: 'search', element: <Search /> },
       { path: 'capture', element: <Capture /> },
+      { path: 'projets', element: <Projets /> },
       { path: 'context/:id', element: <ContextDetail /> },
       { path: 'settings', element: <Settings /> },
     ],

@@ -89,12 +89,9 @@ async function isTabMonitoring(tabId) {
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== CMD.CAPTURE) return;
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) return;
-
-    const monitoring = await isTabMonitoring(tab.id);
-    const type = monitoring ? MSG.CAPTURE_STOP : MSG.CAPTURE_REQUEST;
-    await chrome.tabs.sendMessage(tab.id, { type });
+    // Open the popup and ask user to pick a project
+    await chrome.storage.local.set({ velto_capture_pick: true });
+    await chrome.action.openPopup();
   } catch (e) {
     console.warn('[Velto] capture command failed:', e);
   }
@@ -132,6 +129,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         try {
+          // Determine target context: use payload-provided contextId or selected project, else inbox
+          const sel = await chrome.storage.local.get(['velto_selected_project']);
+          const targetId = contextId || sel?.velto_selected_project || 'inbox';
           // Create context in backend
           const backendContext = await apiService.createContext({
             title: title || (content.split('\n')[0]?.slice(0, 80) || 'Snippet'),
@@ -151,9 +151,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (backendContext.success) {
             // Also store locally for offline access
             const list = await readAllContexts();
-            let ctx = list.find((c) => c.id === (contextId || 'inbox'));
+            let ctx = list.find((c) => c.id === (targetId));
             if (!ctx) {
-              ctx = { id: contextId || 'inbox', name: contextId ? 'Context' : 'Quick Captures', snippets: [], updatedAt: Date.now(), lastTool: tool || 'Unknown' };
+              ctx = { id: targetId, name: targetId !== 'inbox' ? 'Context' : 'Quick Captures', snippets: [], updatedAt: Date.now(), lastTool: tool || 'Unknown' };
               list.unshift(ctx);
             }
             
@@ -180,9 +180,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           console.error('[Velto] Failed to create context:', error);
           // Fallback to local storage only
           const list = await readAllContexts();
-          let ctx = list.find((c) => c.id === (contextId || 'inbox'));
+          const sel = await chrome.storage.local.get(['velto_selected_project']);
+          const targetId = contextId || sel?.velto_selected_project || 'inbox';
+          let ctx = list.find((c) => c.id === (targetId));
           if (!ctx) {
-            ctx = { id: contextId || 'inbox', name: contextId ? 'Context' : 'Quick Captures', snippets: [], updatedAt: Date.now(), lastTool: tool || 'Unknown' };
+            ctx = { id: targetId, name: targetId !== 'inbox' ? 'Context' : 'Quick Captures', snippets: [], updatedAt: Date.now(), lastTool: tool || 'Unknown' };
             list.unshift(ctx);
           }
           

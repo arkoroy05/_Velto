@@ -9,6 +9,9 @@ export default function Capture() {
   const [backendStatus, setBackendStatus] = useState('unknown') // unknown | connected | disconnected
   const [lastSync, setLastSync] = useState(null)
   const [monitoring, setMonitoring] = useState(false)
+  const [projects, setProjects] = useState([])
+  const [selectedProject, setSelectedProject] = useState('inbox')
+  const [promptPick, setPromptPick] = useState(false)
 
   function queryActiveTab() {
     return new Promise((resolve) => {
@@ -24,11 +27,11 @@ export default function Capture() {
   }
 
   useEffect(() => {
-    // read current inbox count for later diff
+    // read current count for selected project for later diff
     chrome.runtime.sendMessage({ type: 'CONTEXTS_LIST' }, (res) => {
       const items = res?.items || []
-      const inbox = items.find(i => i.id === 'inbox')
-      setCountBefore(inbox?.snippetCount || 0)
+      const ctx = items.find(i => i.id === selectedProject)
+      setCountBefore(ctx?.snippetCount || 0)
     })
 
     // Check backend status
@@ -45,7 +48,32 @@ export default function Capture() {
         setMonitoring(!!res?.monitoring)
       })
     })
+
+    // Load projects and last selected project
+    try {
+      chrome.storage.local.get(['velto_projects', 'velto_selected_project', 'velto_capture_pick'], (res) => {
+        const items = Array.isArray(res?.velto_projects) ? res.velto_projects : []
+        setProjects(items)
+        const sel = res?.velto_selected_project || 'inbox'
+        setSelectedProject(sel)
+        if (res?.velto_capture_pick) {
+          setPromptPick(true)
+          // clear the flag so it doesn't loop
+          chrome.storage.local.set({ velto_capture_pick: false })
+        }
+      })
+    } catch (_) {}
   }, [])
+
+  // Recompute baseline count whenever the selected project changes
+  useEffect(() => {
+    if (!selectedProject) return
+    chrome.runtime.sendMessage({ type: 'CONTEXTS_LIST' }, (res) => {
+      const items = res?.items || []
+      const ctx = items.find(i => i.id === selectedProject)
+      setCountBefore(ctx?.snippetCount || 0)
+    })
+  }, [selectedProject])
 
   async function checkBackendStatus() {
     try {
@@ -65,6 +93,8 @@ export default function Capture() {
     try {
       setStatus('capturing')
       setMessage('Capturing selection from the active tab…')
+      // Persist selected project for background to use
+      try { await chrome.storage.local.set({ velto_selected_project: selectedProject || 'inbox' }) } catch (_) {}
       const tab = await queryActiveTab()
       if (!tab?.id) throw new Error('No active tab')
 
@@ -79,12 +109,12 @@ export default function Capture() {
       setTimeout(async () => {
         chrome.runtime.sendMessage({ type: 'CONTEXTS_LIST' }, async (res) => {
           const items = res?.items || []
-          const inbox = items.find(i => i.id === 'inbox')
-          const newCount = inbox?.snippetCount || 0
+          const ctx = items.find(i => i.id === (selectedProject || 'inbox'))
+          const newCount = ctx?.snippetCount || 0
           if (newCount > countBefore) {
-            // fetch latest snippet for preview
+            // fetch latest snippet for preview from selected project
             const detail = await new Promise((resolve) => {
-              chrome.runtime.sendMessage({ type: 'CONTEXT_DETAIL', payload: { id: 'inbox' } }, resolve)
+              chrome.runtime.sendMessage({ type: 'CONTEXT_DETAIL', payload: { id: selectedProject || 'inbox' } }, resolve)
             })
             const latest = detail?.context?.snippets?.[0]
             if (latest) setPreview(latest)
@@ -156,6 +186,32 @@ export default function Capture() {
 
   return (
     <section className="space-y-3">
+      {/* Project Picker */}
+      <div className="border border-gray-700 rounded-md p-4 bg-card/60">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-white font-semibold">Capture target</h3>
+          {promptPick && (
+            <span className="text-xs text-accent">Pick a project to continue</span>
+          )}
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-gray-300">Project</label>
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="w-full px-3 py-2 rounded bg-gray-800 text-white text-sm border border-gray-700 focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            <option value="inbox">Inbox (Quick Captures)</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {projects.length === 0 && (
+            <div className="text-xs text-gray-400">No projects yet. You can create one in Projects tab; capturing will go to Inbox by default.</div>
+          )}
+        </div>
+      </div>
+
       {/* Backend Status */}
       <div className="border border-gray-700 rounded-md p-3 bg-card/60">
         <div className="flex items-center justify-between mb-2">
