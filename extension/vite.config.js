@@ -6,6 +6,7 @@ import manifest from './manifest.json'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './', // Use relative paths for Chrome extension
   plugins: [react(), crx({
     manifest,
   }), tailwindcss()],
