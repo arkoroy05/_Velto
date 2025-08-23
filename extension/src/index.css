@@ -117,3 +117,23 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Hide scrollbars in popup while preserving scroll */
+main {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+main::-webkit-scrollbar {
+  width: 0px;               /* Chrome/Safari/WebKit */
+  height: 0px;
+}
+
+/* Fallback on body if it ever scrolls */
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+body::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}

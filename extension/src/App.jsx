@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import grad from './assets/grad.jpg'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faChartColumn, faMagnifyingGlass, faCamera, faFolder, faGear } from '@fortawesome/free-solid-svg-icons'
 
 function BottomNav() {
   const { pathname } = useLocation()
@@ -12,16 +14,16 @@ function BottomNav() {
       }`}
       aria-current={pathname === to ? 'page' : undefined}
     >
-      <div aria-hidden>{icon}</div>
+      <div aria-hidden className="text-base"><FontAwesomeIcon icon={icon} /></div>
       <div>{label}</div>
     </Link>
   )
   return (
     <nav className="fixed bottom-0 left-0 right-0 w-[380px] mx-auto border-t border-gray-700 bg-[#1a1f3a] flex">
-      <Item to="/" label="Dashboard" icon="📊" />
-      <Item to="/search" label="Search" icon="🔍" />
-      <Item to="/capture" label="Capture" icon="📸" />
-      <Item to="/projets" label="Projects" icon="📁" />
+      <Item to="/" label="Dashboard" icon={faChartColumn} />
+      <Item to="/search" label="Search" icon={faMagnifyingGlass} />
+      <Item to="/capture" label="Capture" icon={faCamera} />
+      <Item to="/projets" label="Projects" icon={faFolder} />
     </nav>
   )
 }
@@ -69,7 +71,9 @@ export default function App() {
       {pathname !== '/login' && (
         <header className="flex items-center justify-between p-3 border-b border-gray-700">
           <span aria-label="Velto" className="text-white font-semibold">Velto</span>
-          <Link to="/settings" className="text-gray-300 hover:text-white text-sm">⚙️</Link>
+          <Link to="/settings" className="text-gray-300 hover:text-white text-sm" aria-label="Settings">
+            <FontAwesomeIcon icon={faGear} />
+          </Link>
         </header>
       )}
       <main className={

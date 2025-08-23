@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCamera, faMagnifyingGlass, faRocket } from '@fortawesome/free-solid-svg-icons'
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -150,7 +152,7 @@ export default function Dashboard() {
             to="/capture" 
             className="flex flex-col items-center p-3 bg-gray-800/50 rounded-md hover:bg-gray-800/70 transition-colors"
           >
-            <div className="text-2xl mb-2" aria-hidden>📸</div>
+            <div className="text-2xl mb-2" aria-hidden><FontAwesomeIcon icon={faCamera} /></div>
             <span className="text-white text-sm">Capture</span>
             <span className="text-gray-400 text-xs">New context</span>
           </Link>
@@ -158,7 +160,7 @@ export default function Dashboard() {
             to="/search" 
             className="flex flex-col items-center p-3 bg-gray-800/50 rounded-md hover:bg-gray-800/70 transition-colors"
           >
-            <div className="text-2xl mb-2" aria-hidden>🔍</div>
+            <div className="text-2xl mb-2" aria-hidden><FontAwesomeIcon icon={faMagnifyingGlass} /></div>
             <span className="text-white text-sm">Search</span>
             <span className="text-gray-400 text-xs">Find contexts</span>
           </Link>
@@ -210,7 +212,7 @@ export default function Dashboard() {
       {/* Empty State */}
       {!loading && stats.totalContexts === 0 && (
         <div className="text-center text-gray-400 py-8">
-          <div className="text-4xl mb-2" aria-hidden>🚀</div>
+          <div className="text-4xl mb-2" aria-hidden><FontAwesomeIcon icon={faRocket} /></div>
           <p>Welcome to Velto!</p>
           <p className="text-sm mt-1">Start by capturing your first context</p>
           <Link 

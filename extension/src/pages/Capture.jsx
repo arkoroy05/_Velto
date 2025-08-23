@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { MSG } from '../lib/constants.js'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCamera } from '@fortawesome/free-solid-svg-icons'
 
 export default function Capture() {
   const [status, setStatus] = useState('idle') // idle | capturing | saved | error
@@ -119,7 +121,7 @@ export default function Capture() {
             const latest = detail?.context?.snippets?.[0]
             if (latest) setPreview(latest)
             setStatus('saved')
-            setMessage('✅ Snippet saved to Velto')
+            setMessage('Snippet saved to Velto')
 
             // We just started monitoring on supported pages
             setMonitoring(true)
@@ -128,7 +130,7 @@ export default function Capture() {
             checkBackendStatus()
           } else {
             setStatus('saved')
-            setMessage('✅ Capture request sent. If nothing saved, make sure you selected text on a supported site.')
+            setMessage('Capture request sent. If nothing saved, make sure you selected text on a supported site.')
             setMonitoring(true)
           }
         })
@@ -168,7 +170,7 @@ export default function Capture() {
       })
       
       if (result.ok) {
-        setMessage('✅ Synced with backend')
+        setMessage('Synced with backend')
         setLastSync(new Date().toLocaleTimeString())
         // Refresh count
         chrome.runtime.sendMessage({ type: 'CONTEXTS_LIST' }, (res) => {
@@ -177,10 +179,10 @@ export default function Capture() {
           setCountBefore(inbox?.snippetCount || 0)
         })
       } else {
-        setMessage('❌ Sync failed: ' + result.error)
+        setMessage('Sync failed: ' + result.error)
       }
     } catch (error) {
-      setMessage('❌ Sync failed: ' + error.message)
+      setMessage('Sync failed: ' + error.message)
     }
   }
 
@@ -246,7 +248,9 @@ export default function Capture() {
       </div>
 
       <div className="border border-gray-700 rounded-md p-4 bg-card/60 text-center space-y-3">
-        <div className="text-2xl" aria-hidden>📸</div>
+        <div className="text-2xl" aria-hidden>
+          <FontAwesomeIcon icon={faCamera} />
+        </div>
         <h3 className="text-white font-semibold">Manual Capture</h3>
         <p className="text-gray-300 text-sm">{message}</p>
         <button onClick={handleToggleClick} disabled={status==='capturing'} className="bg-gradient-to-r from-accent to-accent-bright text-white px-4 py-2 rounded-md text-sm font-medium shadow-glow disabled:opacity-60">

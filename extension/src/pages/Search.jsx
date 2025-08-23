@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
 
 export default function Search() {
   const [query, setQuery] = useState('')
@@ -207,7 +209,7 @@ export default function Search() {
       {/* No Results */}
       {!loading && query && results.length === 0 && !error && (
         <div className="text-center text-gray-400 py-8">
-          <div className="text-4xl mb-2" aria-hidden>🔍</div>
+          <div className="text-4xl mb-2" aria-hidden><FontAwesomeIcon icon={faMagnifyingGlass} /></div>
           <p>No contexts found for "{query}"</p>
           <p className="text-sm mt-1">Try different keywords or check your spelling</p>
         </div>

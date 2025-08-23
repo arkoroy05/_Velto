@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faCircleCheck, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
 
 export default function Onboarding() {
   const [step, setStep] = useState(1)
@@ -27,10 +29,10 @@ export default function Onboarding() {
         <div className="space-y-3">
           <h3 className="text-white font-semibold">AI Tool Integration</h3>
           <ul className="text-gray-300 space-y-1">
-            <li>✅ ChatGPT connected</li>
-            <li>✅ Claude connected</li>
-            <li>✅ Cursor connected</li>
-            <li>⚠️ GitHub Copilot (coming soon)</li>
+            <li className="flex items-center gap-2"><FontAwesomeIcon icon={faCircleCheck} className="text-green-400" /> ChatGPT connected</li>
+            <li className="flex items-center gap-2"><FontAwesomeIcon icon={faCircleCheck} className="text-green-400" /> Claude connected</li>
+            <li className="flex items-center gap-2"><FontAwesomeIcon icon={faCircleCheck} className="text-green-400" /> Cursor connected</li>
+            <li className="flex items-center gap-2"><FontAwesomeIcon icon={faTriangleExclamation} className="text-yellow-400" /> GitHub Copilot (coming soon)</li>
           </ul>
           <div className="flex gap-2">
             <button onClick={prev} className="border border-gray-600 text-gray-200 px-3 py-2 rounded-md">Back</button>
