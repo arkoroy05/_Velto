@@ -5,6 +5,9 @@ import { Plus, Loader2, Bell } from "lucide-react"
 import { RainbowButton } from "@/components/ui/rainbow-button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input"
+import { useAccount } from "wagmi"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
+
 
 interface TopbarProps {
   searchQuery: string
@@ -37,6 +40,7 @@ export default function Topbar({ searchQuery, setSearchQuery, onNewContext, isLo
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             New Context
           </RainbowButton>
+          <ConnectButton />
           <Bell className="w-5 h-5 text-gray-400 cursor-pointer hover:text-white" />
           <Avatar className="w-8 h-8">
             <AvatarFallback className="bg-[#333333] text-white">D</AvatarFallback>

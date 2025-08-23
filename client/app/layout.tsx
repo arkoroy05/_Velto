@@ -3,6 +3,10 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
+import { headers } from "next/headers";
+import { cookieToInitialState } from "wagmi";
+import { getConfig } from "./config";
+import { Providers } from "./providers"
 
 export const metadata: Metadata = {
   title: "Velto- The AI Hivemind ",
@@ -15,6 +19,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const initialState = cookieToInitialState(
+    getConfig(),
+    headers().get("cookie")
+  );
   return (
     <html lang="en" className="dark scroll-smooth">
       <head>
@@ -26,7 +34,11 @@ html {
 }
         `}</style>
       </head>
-      <body className="bg-black">{children}</body>
+      <body className="bg-black">
+        <Providers initialState={initialState}>
+        {children}
+        </Providers>
+      </body>
     </html>
   )
 }
