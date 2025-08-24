@@ -172,8 +172,8 @@ const ContextSuggestionPopup = ({
                   ) : (
                     <div className="space-y-3">
                       <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                        <p className="text-sm text-gray-200 whitespace-pre-wrap">
-                          {promptVersion}
+                        <p className="text-sm text-gray-200 whitespace-pre-wrap" title={promptVersion}>
+                          {promptVersion && promptVersion.length > 300 ? `${promptVersion.slice(0, 300)}...` : promptVersion}
                         </p>
                       </div>
                       

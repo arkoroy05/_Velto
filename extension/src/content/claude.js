@@ -862,8 +862,11 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
       const preservationMetrics = response.data.preservationMetrics || {};
       const relatedContexts = response.data.relatedContexts || [];
       
-      // Display the prompt version
-      promptContent.textContent = promptVersion;
+      // Display the prompt version (truncate UI only)
+      promptContent.setAttribute('title', promptVersion);
+      promptContent.textContent = (promptVersion && promptVersion.length > 300)
+        ? (promptVersion.slice(0, 300) + '...')
+        : promptVersion;
       
       // Display preservation metrics if available
       if (preservationMetrics.overallPreservation !== undefined) {
