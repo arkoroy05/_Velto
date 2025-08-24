@@ -4,7 +4,6 @@ import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
   FileText,
   CheckCircle,
@@ -16,7 +15,7 @@ import {
   Play,
 } from "lucide-react"
 import type { Context, AnalysisResult, PromptVersion, NavigationItem } from "@/components/dashboard/types"
-import ContextDetailView from "@/components/dashboard/ContextDetailView"
+import ReplayModal from "@/components/dashboard/ReplayModal"
 
 interface DashboardHomeProps {
   contexts: Context[]
@@ -36,18 +35,12 @@ export default function DashboardHome({
   const [openContextId, setOpenContextId] = useState<string | null>(null)
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Context Detail Modal */}
-      <Dialog open={!!openContextId} onOpenChange={(o) => !o && setOpenContextId(null)}>
-        {openContextId && (
-          <DialogContent className="sm:max-w-[95vw] w-[95vw] h-[95vh] bg-[#0a0a0a] border-[#333333] rounded-2xl p-0 overflow-hidden">
-            <DialogTitle className="sr-only">Context Details</DialogTitle>
-            <ContextDetailView
-              contextId={openContextId}
-              onBack={() => setOpenContextId(null)}
-            />
-          </DialogContent>
-        )}
-      </Dialog>
+      {/* Replay Modal (JSON schema-driven) */}
+      <ReplayModal
+        open={!!openContextId}
+        contextId={openContextId}
+        onOpenChange={(o) => !o && setOpenContextId(null)}
+      />
       {/* Hero Section */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-white mb-2">Welcome back, Developer</h1>
