@@ -46,7 +46,8 @@ app.use(cors({
     /^chrome-extension:\/\/.*$/,
     // Allow other common origins
     'https://velto.ai',
-    'https://www.velto.ai'
+    'https://www.velto.ai',
+    'https://velto-os.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
