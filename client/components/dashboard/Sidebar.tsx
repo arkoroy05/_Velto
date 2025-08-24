@@ -57,82 +57,13 @@ export default function Sidebar({ activeView, setActiveView, contexts, apiStatus
             onClick={() => setActiveView("contexts")}
           >
             <FileText className="w-4 h-4" />
-            All Contexts
-          </Button>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start gap-3 ${activeView === "analysis" ? "text-white bg-white/20" : "text-gray-400"} hover:text-white hover:bg-white/10`}
-            onClick={() => setActiveView("analysis")}
-          >
-            <BarChart3 className="w-4 h-4" />
-            Analysis Results
-          </Button>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start gap-3 ${activeView === "prompts" ? "text-white bg-white/20" : "text-gray-400"} hover:text-white hover:bg-white/10`}
-            onClick={() => setActiveView("prompts")}
-          >
-            <Code className="w-4 h-4" />
-            Prompt Versions
-          </Button>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start gap-3 ${activeView === "analytics" ? "text-white bg-white/20" : "text-gray-400"} hover:text-white hover:bg-white/10`}
-            onClick={() => setActiveView("analytics")}
-          >
-            <Activity className="w-4 h-4" />
-            Analytics
-          </Button>
-          <Button
-            variant="ghost"
-            className={`w-full justify-start gap-3 ${activeView === "settings" ? "text-white bg-white/20" : "text-gray-400"} hover:text-white hover:bg-white/10`}
-            onClick={() => setActiveView("settings")}
-          >
-            <SettingsIcon className="w-4 h-4" />
-            Settings
+            Active Projects
           </Button>
         </div>
 
-        <div className="mt-6">
-          <div className="text-xs font-medium text-gray-500 mb-2 px-2">Quick Filters</div>
-          <div className="space-y-1">
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-gray-400 hover:text-white hover:bg-white/10"
-              onClick={() => console.log("[v0] Filter: Recently Created")}
-            >
-              <Clock className="w-4 h-4" />
-              Recently Created
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-gray-400 hover:text-white hover:bg-white/10"
-              onClick={() => console.log("[v0] Filter: Recently Analyzed")}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Recently Analyzed
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-gray-400 hover:text-white hover:bg-white/10"
-              onClick={() => console.log("[v0] Filter: Needs Analysis")}
-            >
-              <AlertCircle className="w-4 h-4" />
-              Needs Analysis
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-gray-400 hover:text-white hover:bg-white/10"
-              onClick={() => console.log("[v0] Filter: Favorites")}
-            >
-              <Star className="w-4 h-4" />
-              Favorites
-            </Button>
-          </div>
-        </div>
 
         <div className="mt-6">
-          <div className="text-xs font-medium text-gray-500 mb-2 px-2">Recent Contexts</div>
+          <div className="text-xs font-medium text-gray-500 mb-2 px-2">Active Projects</div>
           <div className="space-y-1">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, idx) => (

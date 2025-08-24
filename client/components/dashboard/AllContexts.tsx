@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { Context } from "@/components/dashboard/types"
 import { getStatusColor } from "@/components/dashboard/utils"
+import ContextDetailView from "./ContextDetailView"
 
 interface AllContextsProps {
   contexts: Context[]
@@ -32,11 +33,21 @@ interface AllContextsProps {
 }
 
 export default function AllContexts({ contexts, isLoading, onAction }: AllContextsProps) {
+  const [selectedContextId, setSelectedContextId] = useState<string | null>(null)
+
+  if (selectedContextId) {
+    return (
+      <ContextDetailView
+        contextId={selectedContextId}
+        onBack={() => setSelectedContextId(null)}
+      />
+    )
+  }
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-white mb-2">All Contexts</h1>
+          <h1 className="text-2xl font-semibold text-white mb-2">Active Projects</h1>
           <p className="text-gray-400">Manage and organize your AI conversation contexts</p>
         </div>
         <div className="flex items-center gap-3">
@@ -106,7 +117,7 @@ export default function AllContexts({ contexts, isLoading, onAction }: AllContex
                   ))
                 ) : (
                   contexts.map((context) => (
-                    <tr key={context.id} className="border-b border-[#2a2a2a] hover:bg-[#1f1f1f] transition-colors">
+                    <tr key={context.id} className="border-b border-[#2a2a2a] hover:bg-[#1f1f1f] transition-colors cursor-pointer" onClick={() => setSelectedContextId(context.id)}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <context.icon className={`w-4 h-4 text-${context.color}-400`} />
@@ -146,7 +157,7 @@ export default function AllContexts({ contexts, isLoading, onAction }: AllContex
                             size="sm"
                             variant="ghost"
                             className="text-gray-400 hover:text-white"
-                            onClick={() => console.log(`[v0] View context ${context.id}`)}
+                            onClick={() => setSelectedContextId(context.id)}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
