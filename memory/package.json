@@ -16,6 +16,7 @@
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
     "mcp:dev": "tsx watch src/mcp/server.ts",
+    "mcp:standalone": "node mcp-standalone.js",
     "mcp:build": "tsc src/mcp/server.ts --outDir dist/mcp",
     "mcp:start": "node dist/mcp/server.js",
     "railway:start": "npm run build && npm run mcp:start"

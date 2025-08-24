@@ -6,7 +6,7 @@ import {
   Tool,
 } from '@modelcontextprotocol/sdk/types.js'
 import { ObjectId } from 'mongodb'
-import dotenv from 'dotenv'
+import * as dotenv from 'dotenv'
 import { databaseService } from '../services/database'
 import { getContextProcessor } from '../ai/context-processor'
 import { Context } from '../types'
@@ -18,6 +18,7 @@ dotenv.config({ path: '.env.local' })
 class VeltoMCPServer {
   private server: Server
   private tools: Map<string, Tool> = new Map()
+  private isDatabaseAvailable: boolean = false
 
   constructor() {
     this.server = new Server(
@@ -221,6 +222,16 @@ class VeltoMCPServer {
   private async handleSaveContext(args: any) {
     const { title, content, projectId, type, tags = [], source, userId } = args
 
+    if (!this.isDatabaseAvailable) {
+      // Return mock response in standalone mode
+      return {
+        success: true,
+        contextId: `mock-${Date.now()}`,
+        message: 'Context saved successfully (standalone mode)',
+        mode: 'standalone'
+      }
+    }
+
     const context: Partial<Context> = {
       title,
       content,
@@ -267,6 +278,26 @@ class VeltoMCPServer {
 
   private async handleSearchContexts(args: any) {
     const { query, projectId, userId, filters = {}, limit = 10 } = args
+
+    if (!this.isDatabaseAvailable) {
+      // Return mock search results in standalone mode
+      return {
+        success: true,
+        contexts: [
+          {
+            id: 'mock-search-1',
+            title: 'Mock Search Result',
+            content: 'This is a mock search result for testing MCP functionality',
+            type: 'note',
+            tags: ['mock', 'test'],
+            createdAt: new Date(),
+            aiAnalysis: null
+          }
+        ],
+        total: 1,
+        mode: 'standalone'
+      }
+    }
 
     // Perform search
     const collection = databaseService.getCollection<Context>('contexts')
@@ -470,8 +501,16 @@ class VeltoMCPServer {
 
   async start() {
     try {
-      // Connect to database
-      await databaseService.connect()
+      // Try to connect to database, but don't fail if it's not available
+      try {
+        await databaseService.connect()
+        this.isDatabaseAvailable = true
+        logger.info('Connected to database')
+      } catch (dbError) {
+        this.isDatabaseAvailable = false
+        logger.warn('Database connection failed, running in standalone mode:', (dbError as Error).message)
+        // Continue without database for local testing
+      }
       
       // Start MCP server
       const transport = new StdioServerTransport()
