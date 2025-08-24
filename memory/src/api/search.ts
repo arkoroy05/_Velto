@@ -554,7 +554,7 @@ function calculateContextPreservationScore(context: Context): number {
   }
   
   // Embeddings presence (20%)
-  if (context.embeddings && context.embeddings.length > 0) {
+  if (context.embeddings?.content && context.embeddings.content.length > 0) {
     score += 0.2
     factors++
   }

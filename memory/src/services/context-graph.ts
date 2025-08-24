@@ -132,8 +132,8 @@ export class ContextGraphService {
     let maxPossibleScore = 0
     
     // 1. Embedding similarity (40% weight)
-    if (context1.embeddings && context2.embeddings && context1.embeddings.length > 0) {
-      const embeddingSimilarity = this.calculateCosineSimilarity(context1.embeddings, context2.embeddings)
+    if (context1.embeddings?.content && context2.embeddings?.content && context1.embeddings.content.length > 0) {
+      const embeddingSimilarity = this.calculateCosineSimilarity(context1.embeddings.content, context2.embeddings.content)
       totalScore += embeddingSimilarity * 0.4
       maxPossibleScore += 0.4
     }

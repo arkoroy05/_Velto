@@ -68,6 +68,48 @@ export class ContextProcessor {
   }
 
   /**
+   * Generate and store embeddings for a context
+   */
+  async generateContextEmbeddings(context: Context): Promise<Context> {
+    try {
+      logger.info(`Generating embeddings for context ${context._id}`)
+      
+      // Generate embeddings for different content parts
+      const [contentEmbedding, titleEmbedding, summaryEmbedding] = await Promise.all([
+        this.generateEmbeddings(context.content),
+        this.generateEmbeddings(context.title),
+        context.aiAnalysis?.summary ? this.generateEmbeddings(context.aiAnalysis.summary) : Promise.resolve([])
+      ])
+      
+      // Update context with embeddings
+      context.embeddings = {
+        content: contentEmbedding,
+        title: titleEmbedding,
+        summary: summaryEmbedding.length > 0 ? summaryEmbedding : [],
+        model: this.embeddingModel,
+        dimensions: contentEmbedding.length,
+        generatedAt: new Date(),
+        version: '1.0.0'
+      }
+      
+      // Add vector metadata
+      context.vectorMetadata = {
+        lastIndexed: new Date(),
+        searchScore: 0,
+        similarityCache: new Map()
+      }
+      
+      logger.info(`Embeddings generated successfully for context ${context._id}`)
+      return context
+      
+    } catch (error) {
+      logger.error('Error generating context embeddings:', error)
+      // Return context without embeddings if generation fails
+      return context
+    }
+    }
+
+  /**
    * Generate a comprehensive, structured prompt version of a context for AI agents
    * Creates actionable, formatted context injections based on context type and user intent
    */
@@ -105,18 +147,18 @@ export class ContextProcessor {
     limit: number = 5
   ): Promise<Context[]> {
     try {
-      if (!context.embeddings || context.embeddings.length === 0) {
+      if (!context.embeddings?.content || context.embeddings.content.length === 0) {
         return this.findRelatedByTags(context, allContexts, limit)
       }
 
-      const contextEmbedding = context.embeddings
+      const contextEmbedding = context.embeddings.content
       const similarities: Array<{ context: Context; similarity: number }> = []
 
       for (const otherContext of allContexts) {
         if (otherContext._id?.equals(context._id)) continue
         
-        if (otherContext.embeddings && otherContext.embeddings.length > 0) {
-          const similarity = this.calculateCosineSimilarity(contextEmbedding, otherContext.embeddings)
+        if (otherContext.embeddings?.content && otherContext.embeddings.content.length > 0) {
+          const similarity = this.calculateCosineSimilarity(contextEmbedding, otherContext.embeddings.content)
           similarities.push({ context: otherContext, similarity })
         }
       }
@@ -146,8 +188,8 @@ export class ContextProcessor {
       const results: Array<{ context: Context; relevance: number }> = []
       
       for (const context of contexts) {
-        if (context.embeddings && context.embeddings.length > 0) {
-          const relevance = this.calculateCosineSimilarity(queryEmbedding, context.embeddings)
+        if (context.embeddings?.content && context.embeddings.content.length > 0) {
+          const relevance = this.calculateCosineSimilarity(queryEmbedding, context.embeddings.content)
           results.push({ context, relevance })
         }
       }

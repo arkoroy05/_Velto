@@ -242,11 +242,17 @@ class VeltoMCPServer {
       updatedAt: new Date()
     }
 
-    // Generate embeddings
-    context.embeddings = await getContextProcessor().generateEmbeddings(content)
-
-    // Analyze context
+    // Analyze context first (needed for embeddings)
     context.aiAnalysis = await getContextProcessor().analyzeContext(context as Context)
+
+    // Generate comprehensive embeddings for the context
+    const contextWithEmbeddings = await getContextProcessor().generateContextEmbeddings(context as Context)
+    if (contextWithEmbeddings.embeddings) {
+      context.embeddings = contextWithEmbeddings.embeddings
+    }
+    if (contextWithEmbeddings.vectorMetadata) {
+      context.vectorMetadata = contextWithEmbeddings.vectorMetadata
+    }
 
     // Save to database
     const collection = databaseService.getCollection<Context>('contexts')

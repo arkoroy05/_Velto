@@ -205,11 +205,17 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
       updatedAt: new Date()
     }
 
-    // Generate embeddings
-    context.embeddings = await getContextProcessor().generateEmbeddings(context.content!)
-
-    // Analyze context with AI
+    // Analyze context with AI first (needed for embeddings)
     context.aiAnalysis = await getContextProcessor().analyzeContext(context as Context)
+
+    // Generate comprehensive embeddings for the context
+    const contextWithEmbeddings = await getContextProcessor().generateContextEmbeddings(context as Context)
+    if (contextWithEmbeddings.embeddings) {
+      context.embeddings = contextWithEmbeddings.embeddings
+    }
+    if (contextWithEmbeddings.vectorMetadata) {
+      context.vectorMetadata = contextWithEmbeddings.vectorMetadata
+    }
 
     // Save to database
     const collection = databaseService.getCollection<Context>('contexts')
@@ -255,6 +261,80 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
     res.status(500).json({
       success: false,
       error: 'Failed to create context'
+    })
+  }
+})
+
+// POST /api/v1/contexts/regenerate-embeddings - Regenerate embeddings for all contexts
+router.post('/regenerate-embeddings', extractUserId, async (req, res): Promise<void> => {
+  try {
+    const collection = databaseService.getCollection<Context>('contexts')
+    
+    // Get all contexts for the user that don't have embeddings
+    const contextsWithoutEmbeddings = await collection
+      .find({ 
+        userId: new ObjectId(req.userId!),
+        $or: [
+          { embeddings: { $exists: false } },
+          { 'embeddings.content': { $exists: false } }
+        ]
+      })
+      .toArray()
+
+    if (contextsWithoutEmbeddings.length === 0) {
+      res.json({
+        success: true,
+        message: 'All contexts already have embeddings',
+        data: { processedCount: 0 }
+      })
+      return
+    }
+
+    let processedCount = 0
+    const errors: string[] = []
+
+    for (const context of contextsWithoutEmbeddings) {
+      try {
+        // Generate embeddings for the context
+        const contextWithEmbeddings = await getContextProcessor().generateContextEmbeddings(context)
+        
+        if (contextWithEmbeddings.embeddings) {
+          // Update the context in the database
+          const updateData: any = { 
+            embeddings: contextWithEmbeddings.embeddings,
+            updatedAt: new Date()
+          }
+          
+          if (contextWithEmbeddings.vectorMetadata) {
+            updateData.vectorMetadata = contextWithEmbeddings.vectorMetadata
+          }
+          
+          await collection.updateOne(
+            { _id: context._id },
+            { $set: updateData }
+          )
+          processedCount++
+        }
+      } catch (error) {
+        errors.push(`Failed to process context ${context._id}: ${error}`)
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Embeddings regenerated for ${processedCount} contexts`,
+      data: { 
+        processedCount,
+        totalContexts: contextsWithoutEmbeddings.length,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    })
+
+  } catch (error) {
+    logger.error('Error regenerating embeddings:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Failed to regenerate embeddings'
     })
   }
 })

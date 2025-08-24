@@ -72,7 +72,25 @@ export interface Context extends BaseEntity {
   source: ContextSource
   metadata: ContextMetadata
   tags: string[]
-  embeddings?: number[]
+  
+  // Enhanced embedding system
+  embeddings?: {
+    content: number[];        // Main content vector (required)
+    title: number[];          // Title vector (optional)
+    summary: number[];        // Summary vector (optional)
+    model: string;            // e.g., "text-embedding-004"
+    dimensions: number;       // Vector dimensions
+    generatedAt: Date;
+    version: string;          // Embedding model version
+  };
+  
+  // Vector search optimization
+  vectorMetadata?: {
+    lastIndexed: Date;
+    searchScore?: number;
+    similarityCache?: Map<string, number>; // Cache similarity scores
+  };
+  
   chunkIndex: number
   parentContextId?: ObjectId
   childContextIds: ObjectId[]
@@ -353,4 +371,52 @@ export interface UsageStats {
   aiQueries: number
   storageUsed: number
   period: 'day' | 'week' | 'month' | 'year'
+}
+
+// Vector similarity utility types
+export interface VectorSimilarity {
+  contextId: ObjectId
+  similarity: number
+  contentScore: number
+  titleScore: number
+  summaryScore: number
+  weightedScore: number
+}
+
+export interface EmbeddingModel {
+  name: string
+  dimensions: number
+  provider: string
+  version: string
+  maxTokens: number
+}
+
+// Utility functions for vector operations
+export function calculateCosineSimilarity(vec1: number[] | undefined, vec2: number[] | undefined): number {
+  if (!vec1 || !vec2 || vec1.length !== vec2.length) return 0;
+  
+  let dotProduct = 0;
+  let norm1 = 0;
+  let norm2 = 0;
+  
+  for (let i = 0; i < vec1.length; i++) {
+    const val1 = vec1[i] || 0;
+    const val2 = vec2[i] || 0;
+    dotProduct += val1 * val2;
+    norm1 += val1 * val1;
+    norm2 += val2 * val2;
+  }
+  
+  norm1 = Math.sqrt(norm1);
+  norm2 = Math.sqrt(norm2);
+  
+  if (norm1 === 0 || norm2 === 0) return 0;
+  
+  return dotProduct / (norm1 * norm2);
+}
+
+export function normalizeVector(vector: number[]): number[] {
+  const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+  if (magnitude === 0) return vector;
+  return vector.map(val => val / magnitude);
 }
