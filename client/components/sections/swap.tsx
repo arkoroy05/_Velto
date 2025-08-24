@@ -8,6 +8,7 @@ import { useAICTContract } from "@/hooks/use-aict-contract"
 import { useAccount } from "wagmi"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { formatEther, parseEther } from "viem"
+import { toast } from "@/hooks/use-toast"
 
 interface Token {
   symbol: string
@@ -120,12 +121,20 @@ export function Swap() {
 
   const handleBuyTokens = async () => {
     if (!isConnected) {
-      alert("Please connect your wallet first")
+      toast({
+        title: "Wallet not connected",
+        description: "Please connect your wallet to continue",
+        variant: "destructive",
+      })
       return
     }
 
     if (!ethAmount || Number(ethAmount) <= 0) {
-      alert("Please enter a valid ETH amount")
+      toast({
+        title: "Invalid amount",
+        description: "Enter a valid ETH amount greater than 0",
+        variant: "destructive",
+      })
       return
     }
 
@@ -134,7 +143,10 @@ export function Swap() {
       
       const result = await buyTokens(ethAmount)
       if (result?.success) {
-        alert(`Successfully purchased tokens! Transaction hash: ${result.hash}`)
+        toast({
+          title: "Purchase successful",
+          description: `Bought ${tokenAmount || "AICT"}. Tx: ${result.hash?.slice(0, 10)}...`,
+        })
         setEthAmount("")
         setTokenAmount("")
         // Reload contract data
@@ -143,7 +155,11 @@ export function Swap() {
     } catch (err) {
       console.error('Error buying tokens:', err)
       const errorMsg = error || (err instanceof Error ? err.message : 'Unknown error occurred')
-      alert(`Failed to buy tokens: ${errorMsg}`)
+      toast({
+        title: "Purchase failed",
+        description: errorMsg,
+        variant: "destructive",
+      })
     }
   }
 

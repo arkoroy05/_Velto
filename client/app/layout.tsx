@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import { getConfig } from "./config";
 import { Providers } from "./providers"
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: "Velto- The AI Hivemind ",
@@ -14,14 +15,15 @@ export const metadata: Metadata = {
   generator: "Velto",
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const cookieHeader = (await headers()).get("cookie")
   const initialState = cookieToInitialState(
     getConfig(),
-    headers().get("cookie")
+    cookieHeader
   );
   return (
     <html lang="en" className="dark scroll-smooth">
@@ -37,6 +39,7 @@ html {
       <body className="bg-black">
         <Providers initialState={initialState}>
         {children}
+        <Toaster />
         </Providers>
       </body>
     </html>
