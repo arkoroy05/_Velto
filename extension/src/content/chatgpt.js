@@ -714,24 +714,29 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
         relatedContexts: [] // Empty array for now, can be enhanced later
       }
     });
-    
+
     if (response?.success && response.data?.promptVersion) {
       const promptVersion = response.data.promptVersion;
       const preservationMetrics = response.data.preservationMetrics || {};
       const relatedContexts = response.data.relatedContexts || [];
-      
+
       // Display the prompt version
-      promptContent.textContent = promptVersion;
-      
+      promptContent.setAttribute('title', promptVersion);
+      promptContent.textContent = (promptVersion && promptVersion.length > 300)
+        ? (promptVersion.slice(0, 300) + '...')
+        : promptVersion;
+
       // Display preservation metrics if available
       if (preservationMetrics.overallPreservation !== undefined) {
         const metricsDiv = document.createElement('div');
         metricsDiv.style.cssText = 'margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; font-size: 12px;';
+
         metricsDiv.innerHTML = `
           <strong>Context Preservation:</strong> ${Math.round(preservationMetrics.overallPreservation * 100)}%<br>
           <strong>Information Retention:</strong> ${Math.round(preservationMetrics.informationRetention * 100)}%<br>
           <strong>Related Contexts Found:</strong> ${relatedContexts.length}
         `;
+
         promptVersionDiv.appendChild(metricsDiv);
       }
       
