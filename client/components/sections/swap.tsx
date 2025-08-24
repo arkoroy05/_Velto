@@ -1,9 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowUpDown, Settings, RefreshCw, Clock, CheckCircle, AlertCircle } from "lucide-react"
+import { ArrowUpDown, Settings, RefreshCw, Clock, CheckCircle, AlertCircle, Brain } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useAICTContract } from "@/hooks/use-aict-contract"
+import { useAccount } from "wagmi"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { formatEther, parseEther } from "viem"
 
 interface Token {
   symbol: string
@@ -25,117 +29,122 @@ interface SwapTransaction {
   txHash: string
 }
 
-const tokens: Token[] = [
-  {
-    symbol: "AVAX",
-    name: "Avalanche",
-    balance: 125.5,
-    price: 35.42,
-    icon: "🔺",
-  },
-  {
-    symbol: "NEBL",
-    name: "Nebula Token",
-    balance: 15420.0,
-    price: 0.85,
-    icon: "🌌",
-  },
-]
-
 const mockTransactions: SwapTransaction[] = [
   {
     id: "1",
-    fromToken: "AVAX",
-    toToken: "NEBL",
-    fromAmount: 10.0,
-    toAmount: 416.47,
-    rate: 41.647,
+    fromToken: "ETH",
+    toToken: "AICT",
+    fromAmount: 0.1,
+    toAmount: 100,
+    rate: 1000,
     timestamp: "2024-04-08T14:30:00Z",
     status: "completed",
     txHash: "0x1234...5678",
   },
   {
     id: "2",
-    fromToken: "NEBL",
-    toToken: "AVAX",
-    fromAmount: 1000.0,
-    toAmount: 24.12,
-    rate: 0.02412,
+    fromToken: "ETH",
+    toToken: "AICT",
+    fromAmount: 0.05,
+    toAmount: 50,
+    rate: 1000,
     timestamp: "2024-04-07T09:15:00Z",
     status: "completed",
     txHash: "0x9876...4321",
   },
-  {
-    id: "3",
-    fromToken: "AVAX",
-    toToken: "NEBL",
-    fromAmount: 5.0,
-    toAmount: 208.33,
-    rate: 41.666,
-    timestamp: "2024-04-06T16:45:00Z",
-    status: "pending",
-    txHash: "0x5555...7777",
-  },
 ]
 
 export function Swap() {
-  const [fromToken, setFromToken] = useState<Token>(tokens[0])
-  const [toToken, setToToken] = useState<Token>(tokens[1])
-  const [fromAmount, setFromAmount] = useState("")
-  const [toAmount, setToAmount] = useState("")
+  const { address, isConnected } = useAccount()
+  const {
+    getTokenBalance,
+    getSaleStatus,
+    getTokenPrice,
+    calculateTokensForETH,
+    buyTokens,
+    getContractInfo,
+    isLoading,
+    error
+  } = useAICTContract()
+
+  const [ethAmount, setEthAmount] = useState("")
+  const [tokenAmount, setTokenAmount] = useState("")
   const [slippage, setSlippage] = useState(0.5)
   const [showSettings, setShowSettings] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [userTokenBalance, setUserTokenBalance] = useState("0")
+  const [saleActive, setSaleActive] = useState(false)
+  const [contractInfo, setContractInfo] = useState<any>(null)
 
-  // Mock exchange rate (in real app, this would come from an API)
-  const exchangeRate = fromToken.symbol === "AVAX" ? 41.647 : 0.02412
-
-  // Calculate amounts based on exchange rate
+  // Load contract data on mount
   useEffect(() => {
-    if (fromAmount && !isNaN(Number(fromAmount))) {
-      const calculated = (Number(fromAmount) * exchangeRate).toFixed(6)
-      setToAmount(calculated)
-    } else if (toAmount && !isNaN(Number(toAmount))) {
-      const calculated = (Number(toAmount) / exchangeRate).toFixed(6)
-      setFromAmount(calculated)
+    if (isConnected) {
+      loadContractData()
     }
-  }, [fromAmount, toAmount, exchangeRate])
+  }, [isConnected])
 
-  const handleSwapTokens = () => {
-    const tempToken = fromToken
-    setFromToken(toToken)
-    setToToken(tempToken)
-    setFromAmount("")
-    setToAmount("")
+  const loadContractData = async () => {
+    try {
+      const [balance, saleStatus, info] = await Promise.all([
+        getTokenBalance(),
+        getSaleStatus(),
+        getContractInfo()
+      ])
+      
+      setUserTokenBalance(balance)
+      setSaleActive(saleStatus)
+      setContractInfo(info)
+    } catch (err) {
+      console.error('Error loading contract data:', err)
+    }
   }
 
-  const handleFromAmountChange = (value: string) => {
-    setFromAmount(value)
-    if (value && !isNaN(Number(value))) {
-      const calculated = (Number(value) * exchangeRate).toFixed(6)
-      setToAmount(calculated)
+  // Calculate token amount when ETH amount changes
+  useEffect(() => {
+    if (ethAmount && !isNaN(Number(ethAmount)) && Number(ethAmount) > 0) {
+      calculateTokensForETH(ethAmount).then(tokens => {
+        setTokenAmount(tokens)
+      })
     } else {
-      setToAmount("")
+      setTokenAmount("")
     }
+  }, [ethAmount, calculateTokensForETH])
+
+  const handleETHAmountChange = (value: string) => {
+    setEthAmount(value)
   }
 
-  const handleToAmountChange = (value: string) => {
-    setToAmount(value)
-    if (value && !isNaN(Number(value))) {
-      const calculated = (Number(value) / exchangeRate).toFixed(6)
-      setFromAmount(calculated)
-    } else {
-      setFromAmount("")
-    }
+  const handleMaxETH = () => {
+    // For demo purposes, set to 0.1 ETH
+    setEthAmount("0.1")
   }
 
-  const handleSwap = async () => {
-    setIsLoading(true)
-    // Simulate swap transaction
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsLoading(false)
-    setFromAmount("")
-    setToAmount("")
+  const handleBuyTokens = async () => {
+    if (!isConnected) {
+      alert("Please connect your wallet first")
+      return
+    }
+
+    if (!ethAmount || Number(ethAmount) <= 0) {
+      alert("Please enter a valid ETH amount")
+      return
+    }
+
+    try {
+      console.log('Starting token purchase:', { ethAmount, isConnected, address });
+      
+      const result = await buyTokens(ethAmount)
+      if (result?.success) {
+        alert(`Successfully purchased tokens! Transaction hash: ${result.hash}`)
+        setEthAmount("")
+        setTokenAmount("")
+        // Reload contract data
+        loadContractData()
+      }
+    } catch (err) {
+      console.error('Error buying tokens:', err)
+      const errorMsg = error || (err instanceof Error ? err.message : 'Unknown error occurred')
+      alert(`Failed to buy tokens: ${errorMsg}`)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -164,15 +173,27 @@ export function Swap() {
     }
   }
 
-  const canSwap = fromAmount && Number(fromAmount) > 0 && Number(fromAmount) <= fromToken.balance
+  const canBuyTokens = ethAmount && Number(ethAmount) > 0 && saleActive && isConnected
+
+  if (!isConnected) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4">AI Context Token Sale</h1>
+          <p className="text-gray-400 mb-6">Connect your wallet to purchase AICT tokens</p>
+          <ConnectButton />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Token Swap</h1>
-          <p className="text-gray-400 mt-1">Exchange AVAX and NEBL tokens instantly</p>
+          <h1 className="text-3xl font-bold">AI Context Token Sale</h1>
+          <p className="text-gray-400 mt-1">Purchase AICT tokens with ETH to unlock AI context windows</p>
         </div>
         <Button
           onClick={() => setShowSettings(!showSettings)}
@@ -184,7 +205,7 @@ export function Swap() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Swap Interface */}
+        {/* Token Purchase Interface */}
         <div className="lg:col-span-2">
           <div
             className="p-6 rounded-xl border"
@@ -196,12 +217,12 @@ export function Swap() {
             }}
           >
             <div className="space-y-4">
-              {/* From Token */}
+              {/* ETH Input */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium">From</label>
+                  <label className="text-sm font-medium">From (ETH)</label>
                   <span className="text-sm text-gray-400">
-                    Balance: {fromToken.balance.toLocaleString()} {fromToken.symbol}
+                    Balance: {address ? "Connected" : "Not connected"}
                   </span>
                 </div>
                 <div
@@ -213,30 +234,32 @@ export function Swap() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-lg">
-                        {fromToken.icon}
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-lg">
+                        Ξ
                       </div>
                       <div>
-                        <p className="font-medium">{fromToken.symbol}</p>
-                        <p className="text-sm text-gray-400">{fromToken.name}</p>
+                        <p className="font-medium">ETH</p>
+                        <p className="text-sm text-gray-400">Ethereum</p>
                       </div>
                     </div>
                     <div className="text-right flex-1 ml-4">
                       <Input
                         type="number"
                         placeholder="0.00"
-                        value={fromAmount}
-                        onChange={(e) => handleFromAmountChange(e.target.value)}
+                        value={ethAmount}
+                        onChange={(e) => handleETHAmountChange(e.target.value)}
                         className="bg-transparent border-none text-right text-xl font-bold p-0 h-auto focus:ring-0"
+                        step="0.01"
+                        min="0.001"
                       />
                       <p className="text-sm text-gray-400 mt-1">
-                        ≈ ${fromAmount ? (Number(fromAmount) * fromToken.price).toFixed(2) : "0.00"}
+                        ≈ ${ethAmount ? (Number(ethAmount) * 2000).toFixed(2) : "0.00"}
                       </p>
                     </div>
                   </div>
                   <div className="flex justify-end mt-2">
                     <Button
-                      onClick={() => handleFromAmountChange(fromToken.balance.toString())}
+                      onClick={handleMaxETH}
                       variant="ghost"
                       size="sm"
                       className="text-blue-400 hover:text-blue-300 p-0 h-auto"
@@ -247,24 +270,19 @@ export function Swap() {
                 </div>
               </div>
 
-              {/* Swap Button */}
+              {/* Arrow */}
               <div className="flex justify-center">
-                <Button
-                  onClick={handleSwapTokens}
-                  variant="outline"
-                  size="sm"
-                  className="bg-white/5 border-white/10 text-gray-300 hover:text-white rounded-full p-2"
-                >
-                  <ArrowUpDown className="w-4 h-4" />
-                </Button>
+                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                  <ArrowUpDown className="w-4 h-4 text-gray-400" />
+                </div>
               </div>
 
-              {/* To Token */}
+              {/* AICT Output */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium">To</label>
+                  <label className="text-sm font-medium">To (AICT)</label>
                   <span className="text-sm text-gray-400">
-                    Balance: {toToken.balance.toLocaleString()} {toToken.symbol}
+                    Balance: {userTokenBalance} AICT
                   </span>
                 </div>
                 <div
@@ -276,24 +294,24 @@ export function Swap() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-lg">
-                        {toToken.icon}
+                      <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-lg">
+                        <Brain className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <p className="font-medium">{toToken.symbol}</p>
-                        <p className="text-sm text-gray-400">{toToken.name}</p>
+                        <p className="font-medium">AICT</p>
+                        <p className="text-sm text-gray-400">AI Context Token</p>
                       </div>
                     </div>
                     <div className="text-right flex-1 ml-4">
                       <Input
                         type="number"
                         placeholder="0.00"
-                        value={toAmount}
-                        onChange={(e) => handleToAmountChange(e.target.value)}
+                        value={tokenAmount}
+                        readOnly
                         className="bg-transparent border-none text-right text-xl font-bold p-0 h-auto focus:ring-0"
                       />
                       <p className="text-sm text-gray-400 mt-1">
-                        ≈ ${toAmount ? (Number(toAmount) * toToken.price).toFixed(2) : "0.00"}
+                        AI Context Windows
                       </p>
                     </div>
                   </div>
@@ -301,7 +319,7 @@ export function Swap() {
               </div>
 
               {/* Exchange Rate */}
-              {fromAmount && toAmount && (
+              {ethAmount && tokenAmount && (
                 <div
                   className="p-3 rounded-lg border"
                   style={{
@@ -313,37 +331,47 @@ export function Swap() {
                     <span className="text-gray-400">Exchange Rate</span>
                     <div className="flex items-center gap-2">
                       <span className="text-white">
-                        1 {fromToken.symbol} = {exchangeRate.toFixed(6)} {toToken.symbol}
+                        1 ETH = 1000 AICT
                       </span>
                       <RefreshCw className="w-3 h-3 text-gray-400" />
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm mt-1">
-                    <span className="text-gray-400">Slippage Tolerance</span>
-                    <span className="text-white">{slippage}%</span>
+                    <span className="text-gray-400">Sale Status</span>
+                    <span className={`text-white ${saleActive ? 'text-green-400' : 'text-red-400'}`}>
+                      {saleActive ? 'Active' : 'Inactive'}
+                    </span>
                   </div>
                 </div>
               )}
 
-              {/* Swap Button */}
+              {/* Buy Button */}
               <Button
-                onClick={handleSwap}
-                disabled={!canSwap || isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-medium disabled:opacity-50"
+                onClick={handleBuyTokens}
+                disabled={!canBuyTokens || isLoading}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 text-lg font-medium disabled:opacity-50"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Swapping...
+                    Purchasing...
                   </div>
-                ) : !fromAmount ? (
-                  "Enter Amount"
-                ) : Number(fromAmount) > fromToken.balance ? (
-                  "Insufficient Balance"
+                ) : !isConnected ? (
+                  "Connect Wallet"
+                ) : !saleActive ? (
+                  "Sale Not Active"
+                ) : !ethAmount ? (
+                  "Enter ETH Amount"
                 ) : (
-                  `Swap ${fromToken.symbol} for ${toToken.symbol}`
+                  `Buy ${tokenAmount} AICT for ${ethAmount} ETH`
                 )}
               </Button>
+
+              {error && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -358,7 +386,7 @@ export function Swap() {
                 boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
               }}
             >
-              <h3 className="font-medium mb-3">Swap Settings</h3>
+              <h3 className="font-medium mb-3">Purchase Settings</h3>
               <div>
                 <label className="block text-sm font-medium mb-2">Slippage Tolerance</label>
                 <div className="flex gap-2">
@@ -370,7 +398,7 @@ export function Swap() {
                       size="sm"
                       className={
                         slippage === value
-                          ? "bg-blue-600 text-white"
+                          ? "bg-purple-600 text-white"
                           : "bg-white/5 border-white/10 text-gray-300 hover:text-white"
                       }
                     >
@@ -393,8 +421,48 @@ export function Swap() {
           )}
         </div>
 
-        {/* Transaction History */}
+        {/* Transaction History and Contract Info */}
         <div>
+          {/* Contract Info */}
+          <div
+            className="p-6 rounded-xl border mb-4"
+            style={{
+              background: "rgba(255, 255, 255, 0.05)",
+              backdropFilter: "blur(16px)",
+              borderColor: "rgba(255, 255, 255, 0.1)",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <h3 className="font-bold mb-4">Contract Info</h3>
+            <div className="space-y-3">
+              {contractInfo ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Name</span>
+                    <span className="font-medium">{contractInfo.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Symbol</span>
+                    <span className="font-medium">{contractInfo.symbol}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Total Supply</span>
+                    <span className="font-medium">{Number(contractInfo.totalSupply).toLocaleString()} AICT</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Sale Status</span>
+                    <span className={`font-medium ${contractInfo.saleActive ? 'text-green-400' : 'text-red-400'}`}>
+                      {contractInfo.saleActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="text-gray-400 text-sm">Loading contract info...</div>
+              )}
+            </div>
+          </div>
+
+          {/* Transaction History */}
           <div
             className="p-6 rounded-xl border"
             style={{
@@ -431,35 +499,6 @@ export function Swap() {
                       {tx.fromAmount} {tx.fromToken} → {tx.toAmount.toFixed(2)} {tx.toToken}
                     </p>
                     <p className="text-xs mt-1">{new Date(tx.timestamp).toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Market Stats */}
-          <div
-            className="mt-4 p-6 rounded-xl border"
-            style={{
-              background: "rgba(255, 255, 255, 0.05)",
-              backdropFilter: "blur(16px)",
-              borderColor: "rgba(255, 255, 255, 0.1)",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-            }}
-          >
-            <h3 className="font-bold mb-4">Market Stats</h3>
-            <div className="space-y-3">
-              {tokens.map((token) => (
-                <div key={token.symbol} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-sm">
-                      {token.icon}
-                    </div>
-                    <span className="font-medium">{token.symbol}</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold">${token.price.toFixed(2)}</p>
-                    <p className="text-xs text-green-400">+2.4%</p>
                   </div>
                 </div>
               ))}

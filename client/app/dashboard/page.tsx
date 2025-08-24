@@ -55,6 +55,8 @@ import type { NavigationItem, ApiStatus, Context } from "@/components/dashboard/
 import api, { type BackendContext } from "@/lib/api"
 import DashboardHome from "@/components/dashboard/DashboardHome"
 import AllContexts from "@/components/dashboard/AllContexts"
+import { Swap } from "@/components/sections/swap"
+import { useAccount } from "wagmi"
 
 export default function VeltoDashboard() {
   const [activeView, setActiveView] = useState<NavigationItem>("dashboard")
@@ -142,6 +144,8 @@ export default function VeltoDashboard() {
     },
   ])
 
+  const { isConnected } = useAccount()
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -167,6 +171,13 @@ export default function VeltoDashboard() {
     const interval = setInterval(checkHealth, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Auto-redirect to swap when wallet connects
+  useEffect(() => {
+    if (isConnected && activeView !== "swap") {
+      setActiveView("swap")
+    }
+  }, [isConnected, activeView])
 
   const mapBackendToUI = (ctx: BackendContext): Context => {
     const id = (ctx._id || (ctx as any).id || "") as string
@@ -895,6 +906,8 @@ export default function VeltoDashboard() {
             onAction={handleContextAction}
           />
         )
+      case "swap":
+        return <Swap />
       default:
         return (
           <DashboardHome

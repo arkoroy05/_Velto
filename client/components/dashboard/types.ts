@@ -9,6 +9,7 @@ export type NavigationItem =
   | "prompts"
   | "analytics"
   | "settings"
+  | "swap"
 
 export type ApiStatus = "healthy" | "degraded" | "offline"
 

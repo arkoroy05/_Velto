@@ -16,6 +16,7 @@ import {
   Star,
   Wifi,
   WifiOff,
+  ArrowLeftRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -58,6 +59,14 @@ export default function Sidebar({ activeView, setActiveView, contexts, apiStatus
           >
             <FileText className="w-4 h-4" />
             Active Projects
+          </Button>
+          <Button
+            variant="ghost"
+            className={`w-full justify-start gap-3 ${activeView === "swap" ? "text-white bg-white/20" : "text-gray-400"} hover:text-white hover:bg-white/10`}
+            onClick={() => setActiveView("swap")}
+          >
+            <ArrowLeftRight className="w-4 h-4" />
+            Token Swap
           </Button>
         </div>
 
