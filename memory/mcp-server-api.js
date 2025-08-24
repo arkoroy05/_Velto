@@ -196,7 +196,8 @@ class VeltoMCPServer {
     const { query, projectId } = args;
     let url = `${this.apiBase}/search?query=${encodeURIComponent(query)}`;
     
-    if (projectId) {
+    // Only add projectId if it's not "inbox" (since inbox is a special case)
+    if (projectId && projectId !== 'inbox') {
       url += `&projectId=${projectId}`;
     }
     
@@ -228,17 +229,83 @@ class VeltoMCPServer {
   }
 
   async createContext(args) {
+    // Map invalid types to valid ones
+    const mapType = (type) => {
+      const validTypes = ['conversation', 'code', 'documentation', 'research', 'idea', 'task', 'note', 'meeting', 'email', 'webpage', 'file', 'image', 'audio', 'video'];
+      
+      // If type is already valid, use it
+      if (validTypes.includes(type)) {
+        return type;
+      }
+      
+      // Map common invalid types to valid ones
+      const typeMapping = {
+        'application_overview': 'documentation',
+        'codebase_analysis': 'code',
+        'system_architecture': 'documentation',
+        'project_overview': 'documentation',
+        'technical_spec': 'documentation',
+        'api_documentation': 'documentation',
+        'user_guide': 'documentation',
+        'tutorial': 'documentation',
+        'bug_report': 'task',
+        'feature_request': 'idea',
+        'meeting_notes': 'meeting',
+        'email_thread': 'email',
+        'webpage_content': 'webpage'
+      };
+      
+      return typeMapping[type] || 'conversation'; // Default fallback
+    };
+
+    // Map invalid source types to valid ones
+    const mapSourceType = (sourceType) => {
+      const validSourceTypes = ['claude', 'cursor', 'copilot', 'windsurf', 'manual', 'api', 'webhook'];
+      
+      // If source type is already valid, use it
+      if (validSourceTypes.includes(sourceType)) {
+        return sourceType;
+      }
+      
+      // Map common invalid source types to valid ones
+      const sourceTypeMapping = {
+        'codebase_analysis': 'manual',
+        'mcp-server': 'api',
+        'system_analysis': 'manual',
+        'project_analysis': 'manual',
+        'technical_analysis': 'manual'
+      };
+      
+      return sourceTypeMapping[sourceType] || 'manual'; // Default fallback
+    };
+
+    // Format the data according to the backend validation schema
+    const contextData = {
+      title: args.title || 'Untitled Context',
+      content: args.content || '',
+      type: mapType(args.type || 'conversation'),
+      projectId: args.projectId,
+      tags: args.tags || [],
+      source: {
+        type: mapSourceType(args.source?.type || 'manual'),
+        agentId: args.source?.agentId || 'mcp-server',
+        sessionId: args.source?.sessionId || 'mcp-session'
+      },
+      metadata: args.metadata || {}
+    };
+
     const response = await fetch(`${this.apiBase}/contexts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-User-ID': this.userId
       },
-      body: JSON.stringify(args)
+      body: JSON.stringify(contextData)
     });
     
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`API request failed: ${response.status} - ${errorText}`);
     }
     
     return await response.json();
@@ -293,3 +360,6 @@ class VeltoMCPServer {
 // Start the server
 const server = new VeltoMCPServer();
 server.start().catch(console.error);
+
+// Export for testing
+module.exports = { VeltoMCPServer };
