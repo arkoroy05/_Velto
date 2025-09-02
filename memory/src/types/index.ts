@@ -96,6 +96,10 @@ export interface Context extends BaseEntity {
   childContextIds: ObjectId[]
   aiAnalysis?: AIAnalysis
   isArchived: boolean
+  
+  // Smart chunking integration
+  chunkCount?: number
+  hasContextNodes?: boolean
 }
 
 export type ContextType = 
@@ -166,6 +170,74 @@ export interface AIAnalysis {
 }
 
 // Graph and relationship interfaces
+// Smart Chunking interfaces
+export interface ChunkingStrategy {
+  maxTokens: number
+  preserveBoundaries: boolean
+  semanticGrouping: boolean
+  overlapTokens: number
+  respectParagraphs: boolean
+  respectCodeBlocks: boolean
+  respectHeaders: boolean
+  minChunkSize: number
+  maxChunkSize: number
+}
+
+export interface ChunkingResult {
+  chunks: OptimizedChunk[]
+  totalTokens: number
+  originalLength: number
+  chunkCount: number
+  strategy: ChunkingStrategy
+  metadata: {
+    chunkingTime: Date
+    contentType: string
+    language: string
+    complexity: string
+  }
+}
+
+export interface OptimizedChunk {
+  content: string
+  tokenCount: number
+  startPosition: number
+  endPosition: number
+  type: string
+  metadata: {
+    isOptimized: boolean
+    originalChunks: number
+  }
+}
+
+// Enhanced ContextNode interface for chunked contexts
+export interface ContextNode extends BaseEntity {
+  id: string
+  content: string
+  tokenCount: number
+  importance: number
+  timestamp: Date
+  parentNodeId?: ObjectId
+  childNodeIds: ObjectId[]
+  embeddings: number[]
+  summary: string
+  keywords: string[]
+  relationships: Relationship[]
+  metadata: {
+    chunkIndex: number
+    totalChunks: number
+    originalContextId: ObjectId
+    chunkType: string
+    isOptimized: boolean
+  }
+}
+
+export interface Relationship {
+  targetId: ObjectId
+  type: 'depends_on' | 'implements' | 'references' | 'similar' | 'parent' | 'child'
+  strength: number
+  metadata?: Record<string, any>
+}
+
 export interface ContextGraph extends BaseEntity {
   projectId: ObjectId
   nodes: GraphNode[]

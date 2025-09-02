@@ -107,7 +107,9 @@ router.get('/', extractUserId, async (req, res): Promise<void> => {
         createdAt: ctx.createdAt,
         updatedAt: ctx.updatedAt,
         aiAnalysis: ctx.aiAnalysis,
-        metadata: ctx.metadata
+        metadata: ctx.metadata,
+        chunkCount: ctx.chunkCount || 1,
+        hasContextNodes: ctx.hasContextNodes || false
       })),
       pagination: {
         page: Math.floor(Number(offset) / Number(limit)) + 1,
@@ -153,6 +155,18 @@ router.get('/:id', extractUserId, async (req, res): Promise<void> => {
       return
     }
 
+    // INTEGRATION: Get ContextNodes if they exist
+    let contextNodes = null
+    if (context.hasContextNodes) {
+      try {
+        const { getContextNodeManager } = require('../services/context-node-manager')
+        const contextNodeManager = getContextNodeManager()
+        contextNodes = await contextNodeManager.getContextNodes(context._id!)
+      } catch (error) {
+        logger.warn(`Failed to fetch ContextNodes for context ${context._id}: ${error}`)
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -167,7 +181,19 @@ router.get('/:id', extractUserId, async (req, res): Promise<void> => {
         aiAnalysis: context.aiAnalysis,
         metadata: context.metadata,
         source: context.source,
-        embeddings: context.embeddings ? 'present' : null // Don't send full embeddings
+        embeddings: context.embeddings ? 'present' : null, // Don't send full embeddings
+        chunkCount: context.chunkCount || 1,
+        hasContextNodes: context.hasContextNodes || false,
+        contextNodes: contextNodes ? contextNodes.map((node: any) => ({
+          id: node.id,
+          content: node.content,
+          tokenCount: node.tokenCount,
+          importance: node.importance,
+          summary: node.summary,
+          keywords: node.keywords,
+          chunkIndex: node.metadata.chunkIndex,
+          chunkType: node.metadata.chunkType
+        })) : null
       }
     })
   } catch (error) {
@@ -179,7 +205,7 @@ router.get('/:id', extractUserId, async (req, res): Promise<void> => {
   }
 })
 
-// POST /api/v1/contexts - Create new context
+// POST /api/v1/contexts - Create new context with smart chunking
 router.post('/', extractUserId, async (req, res): Promise<void> => {
   try {
     const validatedData = CreateContextSchema.parse(req.body)
@@ -220,8 +246,41 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
     // Save to database
     const collection = databaseService.getCollection<Context>('contexts')
     const result = await collection.insertOne(context as Context)
+    const savedContext = { ...context, _id: result.insertedId } as Context
 
     logger.info(`Context created: ${result.insertedId}`)
+
+    // INTEGRATION: Use smart chunking to create ContextNodes
+    try {
+      const { getContextNodeManager } = require('../services/context-node-manager')
+      const contextNodeManager = getContextNodeManager()
+      
+      // Convert context to ContextNodes (this will automatically chunk if needed)
+      const contextNodes = await contextNodeManager.convertContextToNodes(savedContext)
+      
+      logger.info(`Created ${contextNodes.length} ContextNodes for context ${result.insertedId}`)
+      
+      // Update the context with chunk information
+      const chunkCount = contextNodes.length
+      await collection.updateOne(
+        { _id: result.insertedId },
+        { 
+          $set: { 
+            chunkCount,
+            hasContextNodes: true,
+            updatedAt: new Date()
+          }
+        }
+      )
+      
+      // Update context object for response
+      context.chunkCount = chunkCount
+      context.hasContextNodes = true
+      
+    } catch (chunkingError) {
+      logger.warn(`Smart chunking failed for context ${result.insertedId}: ${chunkingError}`)
+      // Continue without chunking - context is still created
+    }
 
     // Create or update context graph if projectId exists
     if (context.projectId) {
@@ -243,9 +302,11 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
         tags: context.tags,
         projectId: context.projectId?.toString(),
         createdAt: context.createdAt,
-        aiAnalysis: context.aiAnalysis
+        aiAnalysis: context.aiAnalysis,
+        chunkCount: context.chunkCount || 1,
+        hasContextNodes: context.hasContextNodes || false
       },
-      message: 'Context created successfully'
+      message: 'Context created successfully with smart chunking'
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
