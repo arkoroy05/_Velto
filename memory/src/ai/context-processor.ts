@@ -18,6 +18,62 @@ export class ContextProcessor {
   }
 
   /**
+   * Generate a better title for a context using AI
+   */
+  async generateContextTitle(content: string, type: string): Promise<string> {
+    try {
+      const prompt = `Generate a concise, descriptive title (max 60 characters) for this ${type} content. Focus on the main topic or purpose. Return only the title, no quotes or formatting.
+
+Content: ${content.substring(0, 1000)}${content.length > 1000 ? '...' : ''}
+
+Title:`
+
+      const response = await this.gemini.models.generateContent({
+        model: this.generationModel,
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+          maxOutputTokens: 50
+        }
+      })
+
+      const title = (response.text || '').trim().replace(/^["']|["']$/g, '')
+      return title.length > 0 ? title : 'Untitled Context'
+    } catch (error) {
+      logger.error('Error generating context title:', error)
+      return 'Untitled Context'
+    }
+  }
+
+  /**
+   * Generate a better title for a context node using AI
+   */
+  async generateNodeTitle(content: string, chunkType: string, chunkIndex: number): Promise<string> {
+    try {
+      const prompt = `Generate a concise title (max 40 characters) for this ${chunkType} chunk #${chunkIndex + 1}. Focus on the main topic or key concept.
+
+Content: ${content.substring(0, 500)}${content.length > 500 ? '...' : ''}
+
+Title:`
+
+      const response = await this.gemini.models.generateContent({
+        model: this.generationModel,
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+          maxOutputTokens: 30
+        }
+      })
+
+      const title = (response.text || '').trim().replace(/^["']|["']$/g, '')
+      return title.length > 0 ? title : `Chunk ${chunkIndex + 1}`
+    } catch (error) {
+      logger.error('Error generating node title:', error)
+      return `Chunk ${chunkIndex + 1}`
+    }
+  }
+
+  /**
    * Analyze a context and generate AI insights
    */
   async analyzeContext(context: Context): Promise<AIAnalysis> {

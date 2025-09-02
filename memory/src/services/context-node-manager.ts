@@ -95,7 +95,7 @@ export class ContextNodeManager {
         const chunkingResult = await this.smartChunker.chunkContent(cleaned, baseStrategy)
         for (const [i, ch] of chunkingResult.chunks.entries()) {
           if (!ch) continue
-          const node = this.buildContextNodeFromPiece(
+          const node = await this.buildContextNodeFromPiece(
             context,
             `${context._id}_turn_${t.turn}_${t.role}_${i}`,
             ch.content,
@@ -108,7 +108,7 @@ export class ContextNodeManager {
           chunkIndex++
         }
       } else {
-        const node = this.buildContextNodeFromPiece(
+        const node = await this.buildContextNodeFromPiece(
           context,
           `${context._id}_turn_${t.turn}_${t.role}`,
           cleaned,
@@ -134,7 +134,7 @@ export class ContextNodeManager {
   /**
    * Build a ContextNode object from a content piece
    */
-  private buildContextNodeFromPiece(
+  private async buildContextNodeFromPiece(
     context: Context,
     id: string,
     content: string,
@@ -142,7 +142,17 @@ export class ContextNodeManager {
     chunkIndex: number,
     totalChunks: number,
     chunkType: string
-  ): ContextNode {
+  ): Promise<ContextNode> {
+    // Generate AI title for the node
+    let nodeTitle = `Chunk ${chunkIndex + 1}`
+    try {
+      const { getContextProcessor } = require('../ai/context-processor')
+      const processor = getContextProcessor()
+      nodeTitle = await processor.generateNodeTitle(content, chunkType, chunkIndex)
+    } catch (error) {
+      logger.warn(`Failed to generate AI title for node ${id}: ${error}`)
+    }
+
     const contextNodeData: any = {
       id,
       content,
@@ -154,6 +164,7 @@ export class ContextNodeManager {
       summary: this.generateContextSummary(content),
       keywords: this.extractKeywordsFromText(content),
       relationships: [],
+      title: nodeTitle, // Add AI-generated title
       createdAt: context.createdAt,
       updatedAt: context.updatedAt,
       metadata: {
@@ -302,6 +313,16 @@ export class ContextNodeManager {
     const content = context.content || ''
     const estimatedTokens = this.estimateTokenCount(content)
     
+    // Generate AI title for the single node
+    let nodeTitle = context.title || 'Untitled Context'
+    try {
+      const { getContextProcessor } = require('../ai/context-processor')
+      const processor = getContextProcessor()
+      nodeTitle = await processor.generateNodeTitle(content, this.determineContextType(context), 0)
+    } catch (error) {
+      logger.warn(`Failed to generate AI title for single node: ${error}`)
+    }
+
     const contextNodeData: any = {
       id: `${context._id}_node_0`,
       content: content,
@@ -313,6 +334,7 @@ export class ContextNodeManager {
       summary: this.generateContextSummary(content),
       keywords: this.extractContextKeywords(context),
       relationships: [],
+      title: nodeTitle, // Add AI-generated title
       createdAt: context.createdAt,
       updatedAt: context.updatedAt,
       metadata: {

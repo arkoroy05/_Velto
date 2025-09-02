@@ -232,6 +232,15 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
       updatedAt: new Date()
     }
 
+    // Generate better title using AI if not provided or generic
+    if (!validatedData.title || validatedData.title === 'Untitled' || validatedData.title.length < 5) {
+      try {
+        context.title = await getContextProcessor().generateContextTitle(validatedData.content, validatedData.type)
+      } catch (error) {
+        logger.warn(`Failed to generate AI title: ${error}`)
+      }
+    }
+
     // Analyze context with AI first (needed for embeddings)
     context.aiAnalysis = await getContextProcessor().analyzeContext(context as Context)
 

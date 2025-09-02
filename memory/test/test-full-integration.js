@@ -200,8 +200,8 @@ class IntegrationTester {
         await databaseService.connect()
       }
       
-      // Clean all collections
-      const collections = ['contexts', 'contextNodes', 'projects', 'users']
+      // Clean all collections including context graphs
+      const collections = ['contexts', 'contextNodes', 'projects', 'users', 'contextGraphs']
       for (const collectionName of collections) {
         try {
           const collection = databaseService.getCollection(collectionName)
