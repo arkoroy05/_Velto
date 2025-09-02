@@ -1,7 +1,9 @@
 import { ObjectId } from 'mongodb'
 import { databaseService } from './database'
-import { Context, ContextGraph, GraphNode, GraphEdge } from '../types'
+import { Context, ContextGraph, GraphNode, GraphEdge, ContextNode } from '../types'
 import { logger } from '../utils/logger'
+import { EfficientGraphBuilder } from './efficient-graph-builder'
+import { getCacheManager } from './cache-manager'
 
 export class ContextGraphService {
   private collection = databaseService.getCollection<ContextGraph>('contextGraphs')
@@ -11,6 +13,10 @@ export class ContextGraphService {
    */
   async buildContextGraph(projectId: ObjectId, userId: ObjectId): Promise<ContextGraph> {
     try {
+      const cache = getCacheManager()
+      const cacheKey = cache.generateCacheKey('contextGraph', { projectId: projectId.toString(), userId: userId.toString(), mode: 'content' })
+      const cached = await cache.getCachedResult<ContextGraph>(cacheKey)
+      if (cached) return cached
       const contextsCollection = databaseService.getCollection<Context>('contexts')
       
       // Get all contexts for the project
@@ -62,11 +68,15 @@ export class ContextGraphService {
           { $set: graphData }
         )
         logger.info(`Context graph updated for project ${projectId}`)
-        return { ...graphData, _id: existingGraph._id }
+        const updated = { ...graphData, _id: existingGraph._id }
+        await cache.setCachedResult(cacheKey, updated, 60)
+        return updated
       } else {
         const result = await this.collection.insertOne(graphData)
         logger.info(`Context graph created for project ${projectId}`)
-        return { ...graphData, _id: result.insertedId }
+        const created = { ...graphData, _id: result.insertedId }
+        await cache.setCachedResult(cacheKey, created, 60)
+        return created
       }
     } catch (error) {
       logger.error('Error building context graph:', error)
@@ -122,6 +132,53 @@ export class ContextGraphService {
     }
 
     return edges
+  }
+
+  /**
+   * Build graph from ContextNodes when available (faster and more granular)
+   */
+  async buildGraphFromNodes(projectId: ObjectId, userId: ObjectId): Promise<ContextGraph> {
+    const cache = getCacheManager()
+    const cacheKey = cache.generateCacheKey('contextGraph', { projectId: projectId.toString(), userId: userId.toString(), mode: 'nodes' })
+    const cached = await cache.getCachedResult<ContextGraph>(cacheKey)
+    if (cached) return cached
+    const nodesCollection = databaseService.getCollection<ContextNode>('contextNodes')
+    const contextsCollection = databaseService.getCollection<Context>('contexts')
+    const builder = new EfficientGraphBuilder()
+
+    // Load latest nodes for this project's contexts
+    const projectContexts = await contextsCollection.find({ projectId, userId }).project({ _id: 1 }).toArray()
+    const ids = projectContexts.map(c => c._id)
+    const nodeDocs = await nodesCollection.find({ 'metadata.originalContextId': { $in: ids } }).limit(2000).toArray()
+
+    const { graphNodes, graphEdges } = await builder.buildGraph(nodeDocs)
+
+    const existingGraph = await this.collection.findOne({ projectId })
+    const graphData: Omit<ContextGraph, '_id'> = {
+      projectId,
+      nodes: graphNodes,
+      edges: graphEdges,
+      layout: existingGraph?.layout || {
+        type: 'force',
+        settings: { nodeSpacing: 150, edgeLength: 200, gravity: -1000 }
+      },
+      createdAt: existingGraph?.createdAt || new Date(),
+      updatedAt: new Date()
+    }
+
+    if (existingGraph) {
+      await this.collection.updateOne({ _id: existingGraph._id }, { $set: graphData })
+      logger.info(`Context graph (nodes) updated for project ${projectId}`)
+      const updated = { ...graphData, _id: existingGraph._id }
+      await cache.setCachedResult(cacheKey, updated, 60)
+      return updated
+    } else {
+      const result = await this.collection.insertOne(graphData)
+      logger.info(`Context graph (nodes) created for project ${projectId}`)
+      const created = { ...graphData, _id: result.insertedId }
+      await cache.setCachedResult(cacheKey, created, 60)
+      return created
+    }
   }
 
   /**

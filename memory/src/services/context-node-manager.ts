@@ -23,6 +23,15 @@ export class ContextNodeManager {
     try {
       logger.info(`Converting context ${context._id} to ContextNodes`)
       
+      // Conversation-aware handling: always structure by turns/responses
+      if (context.type === 'conversation') {
+        logger.info(`Context ${context._id} detected as conversation. Using conversation-aware conversion`)
+        const nodes = await this.convertConversationToNodes(context, strategy)
+        const stored = await this.storeContextNodes(nodes)
+        logger.info(`Successfully converted conversation context ${context._id} to ${stored.length} ContextNodes`)
+        return stored
+      }
+
       // Check if content is large enough to warrant chunking
       if (!this.shouldChunkContext(context)) {
         logger.info(`Context ${context._id} is small enough, creating single node`)
@@ -51,6 +60,186 @@ export class ContextNodeManager {
       logger.error('Error converting context to ContextNodes:', error)
       throw new Error(`Failed to convert context to ContextNodes: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  /**
+   * Specialized conversion for conversation contexts.
+   * Breaks content into turns (User/AI), cleans tags/headers, and chunks oversized parts.
+   */
+  private async convertConversationToNodes(
+    context: Context,
+    strategy?: ChunkingStrategy
+  ): Promise<ContextNode[]> {
+    const content = context.content || ''
+    const turns = this.parseConversationTurns(content)
+    const nodes: ContextNode[] = []
+    const baseStrategy: ChunkingStrategy = strategy || {
+      maxTokens: 4000,
+      preserveBoundaries: true,
+      semanticGrouping: true,
+      overlapTokens: 100,
+      respectParagraphs: true,
+      respectCodeBlocks: true,
+      respectHeaders: true,
+      minChunkSize: 100,
+      maxChunkSize: 8000
+    }
+
+    let chunkIndex = 0
+    for (const t of turns) {
+      const cleaned = this.cleanConversationText(t.content)
+      const estimatedTokens = this.estimateTokenCount(cleaned)
+
+      // If this turn is too large, chunk it further using SmartChunker
+      if (estimatedTokens > baseStrategy.maxTokens) {
+        const chunkingResult = await this.smartChunker.chunkContent(cleaned, baseStrategy)
+        for (const [i, ch] of chunkingResult.chunks.entries()) {
+          if (!ch) continue
+          const node = this.buildContextNodeFromPiece(
+            context,
+            `${context._id}_turn_${t.turn}_${t.role}_${i}`,
+            ch.content,
+            ch.tokenCount,
+            chunkIndex,
+            chunkingResult.chunks.length,
+            'conversation_turn'
+          )
+          nodes.push(node)
+          chunkIndex++
+        }
+      } else {
+        const node = this.buildContextNodeFromPiece(
+          context,
+          `${context._id}_turn_${t.turn}_${t.role}`,
+          cleaned,
+          estimatedTokens,
+          chunkIndex,
+          turns.length,
+          'conversation_turn'
+        )
+        nodes.push(node)
+        chunkIndex++
+      }
+    }
+
+    // Normalize totalChunks metadata to the final count
+    const total = nodes.length
+    for (const n of nodes) {
+      n.metadata.totalChunks = total
+    }
+
+    return nodes
+  }
+
+  /**
+   * Build a ContextNode object from a content piece
+   */
+  private buildContextNodeFromPiece(
+    context: Context,
+    id: string,
+    content: string,
+    tokenCount: number,
+    chunkIndex: number,
+    totalChunks: number,
+    chunkType: string
+  ): ContextNode {
+    const contextNodeData: any = {
+      id,
+      content,
+      tokenCount,
+      importance: this.calculateContextImportance(context),
+      timestamp: context.createdAt,
+      childNodeIds: [],
+      embeddings: [],
+      summary: this.generateContextSummary(content),
+      keywords: this.extractKeywordsFromText(content),
+      relationships: [],
+      createdAt: context.createdAt,
+      updatedAt: context.updatedAt,
+      metadata: {
+        chunkIndex,
+        totalChunks,
+        originalContextId: context._id!,
+        chunkType,
+        isOptimized: true
+      }
+    }
+    if (context._id) {
+      contextNodeData.parentNodeId = context._id
+    }
+    return contextNodeData as ContextNode
+  }
+
+  /**
+   * Parse conversation content into structured turns
+   */
+  private parseConversationTurns(content: string): Array<{ turn: number; role: 'user' | 'ai'; content: string; timestamp?: string }> {
+    const turns: Array<{ turn: number; role: 'user' | 'ai'; content: string; timestamp?: string }> = []
+    const blocks = content.split(/\n---\n/g)
+    let turnCounter = 0
+
+    for (const block of blocks) {
+      const turnMatch = block.match(/##\s*Turn\s*(\d+)/i)
+      const timestampMatch = block.match(/\*\*Timestamp:\*\*\s*([^\n]+)/i)
+      const turnNumber = turnMatch ? parseInt((turnMatch[1] as string), 10) : (++turnCounter)
+
+      // Extract User Prompt and AI Response sections
+      const userMatch = block.match(/\*\*User\s*Prompt:\*\*[\s\S]*?(?=(\*\*AI\s*Response:\*\*|$))/i)
+      const aiMatch = block.match(/\*\*AI\s*Response:\*\*[\s\S]*/i)
+
+      if (userMatch) {
+        const userContent = userMatch[0]
+        const ts = timestampMatch?.[1]?.trim()
+        turns.push({ turn: turnNumber, role: 'user', content: userContent, ...(ts ? { timestamp: ts } : {}) })
+      }
+      if (aiMatch) {
+        const aiContent = aiMatch[0]
+        const ts = timestampMatch?.[1]?.trim()
+        turns.push({ turn: turnNumber, role: 'ai', content: aiContent, ...(ts ? { timestamp: ts } : {}) })
+      }
+    }
+
+    // Fallback: if no explicit blocks, try simple split by headers
+    if (turns.length === 0) {
+      const simple = content.split(/##\s*Turn\s*\d+/i)
+      for (const [i, partRaw] of simple.entries()) {
+        const part = (partRaw || '').trim()
+        if (!part) continue
+        turns.push({ turn: i + 1, role: 'ai', content: part })
+      }
+    }
+
+    return turns
+  }
+
+  /**
+   * Clean conversation text: remove markdown headers/tags and redundant labels
+   */
+  private cleanConversationText(text: string): string {
+    let t = text || ''
+    // Remove headers like "# ChatGPT Conversation", "## Turn X"
+    t = t.replace(/^#+\s+.*$/gm, '')
+    // Remove bold labels like **User Prompt:**, **AI Response:**, **Timestamp:**
+    t = t.replace(/\*\*\s*(User\s*Prompt|AI\s*Response|Timestamp)\s*:\s*\*\*/gi, '')
+    // Remove markdown code fences surrounding json or text
+    t = t.replace(/```[\s\S]*?```/g, (m) => m.replace(/^```\w*\n?/,'').replace(/\n?```$/,''))
+    // Trim brackets-only placeholders, keep text inside brackets
+    t = t.replace(/\[(.*?)\]/g, '$1')
+    // Normalize whitespace
+    t = t.replace(/[\t ]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+    return t
+  }
+
+  /**
+   * Extract keywords from plain text
+   */
+  private extractKeywordsFromText(content: string): string[] {
+    const words = content.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 3)
+    const wordCounts = new Map<string, number>()
+    for (const w of words) {
+      wordCounts.set(w, (wordCounts.get(w) || 0) + 1)
+    }
+    return Array.from(wordCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([w]) => w)
   }
 
   /**

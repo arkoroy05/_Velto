@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { databaseService } from '../services/database'
 import { getContextProcessor } from '../ai/context-processor'
 import { getContextGraphService } from '../services/context-graph'
+import { getCacheManager } from '../services/cache-manager'
 import { Context, APIResponse } from '../types'
 import { logger } from '../utils/logger'
 
@@ -286,6 +287,8 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
     if (context.projectId) {
       try {
         await getContextGraphService().buildContextGraph(context.projectId, context.userId)
+        // Invalidate graph caches for this project
+        getCacheManager().invalidateCache(`projectId:${context.projectId.toString()}`)
         logger.info(`Context graph updated for project ${context.projectId}`)
       } catch (error) {
         logger.warn(`Failed to update context graph: ${error}`)
@@ -468,6 +471,7 @@ router.put('/:id', extractUserId, async (req, res): Promise<void> => {
       try {
         const projectId = validatedData.projectId ? new ObjectId(validatedData.projectId) : existingContext.projectId!
         await getContextGraphService().buildContextGraph(projectId, new ObjectId(req.userId!))
+        getCacheManager().invalidateCache(`projectId:${projectId.toString()}`)
         logger.info(`Context graph updated after context modification`)
       } catch (error) {
         logger.warn(`Failed to update context graph: ${error}`)
@@ -526,6 +530,11 @@ router.delete('/:id', extractUserId, async (req, res): Promise<void> => {
     }
 
     logger.info(`Context deleted: ${id}`)
+    // Best-effort invalidate for any project graphs (cannot know projectId reliably post-delete without fetch)
+    try {
+      const projectIdStr = (req.query && typeof req.query['projectId'] === 'string') ? req.query['projectId'] as string : ''
+      if (projectIdStr) getCacheManager().invalidateCache(`projectId:${projectIdStr}`)
+    } catch {}
 
     res.json({
       success: true,
@@ -832,10 +841,34 @@ router.get('/:id/graph', extractUserId, async (req, res): Promise<void> => {
 
     // Get or create context graph
     let contextGraph = await getContextGraphService().getContextGraph(context.projectId, new ObjectId(req.userId!))
-    
+
     if (!contextGraph) {
-      // Create context graph if it doesn't exist
-      contextGraph = await getContextGraphService().buildContextGraph(context.projectId, new ObjectId(req.userId!))
+      // Prefer node-based graph if ContextNodes exist for this project; fallback otherwise
+      try {
+        const contextsCollection = databaseService.getCollection<Context>('contexts')
+        const nodesCollection = databaseService.getCollection('contextNodes')
+        // Fetch IDs of all contexts in the project for the user
+        const projectContexts = await contextsCollection
+          .find({ projectId: context.projectId, userId: new ObjectId(req.userId!) })
+          .project({ _id: 1 })
+          .toArray()
+
+        const projectIds = projectContexts.map(c => c._id)
+        let hasNodes = false
+        if (projectIds.length > 0) {
+          const count = await nodesCollection.countDocuments({ 'metadata.originalContextId': { $in: projectIds } })
+          hasNodes = count > 0
+        }
+
+        if (hasNodes) {
+          contextGraph = await getContextGraphService().buildGraphFromNodes(context.projectId, new ObjectId(req.userId!))
+        } else {
+          contextGraph = await getContextGraphService().buildContextGraph(context.projectId, new ObjectId(req.userId!))
+        }
+      } catch (e) {
+        // On any failure, fallback to the original builder
+        contextGraph = await getContextGraphService().buildContextGraph(context.projectId, new ObjectId(req.userId!))
+      }
     }
 
     res.json({

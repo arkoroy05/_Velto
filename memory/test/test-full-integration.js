@@ -177,6 +177,7 @@ class IntegrationTester {
     this.serverProcess = null
     this.testResults = []
     this.contextIds = []
+    this.projectId = null
   }
 
   async log(message, type = 'info') {
@@ -296,7 +297,7 @@ class IntegrationTester {
           'Content-Type': 'application/json',
           'x-user-id': '507f1f77bcf86cd799439011' // Mock user ID for testing
         },
-        body: JSON.stringify(contextData)
+        body: JSON.stringify(this.projectId ? { ...contextData, projectId: this.projectId } : contextData)
       })
       
       if (!response.ok) {
@@ -345,6 +346,41 @@ class IntegrationTester {
         status: 'FAILED', 
         error: error.message 
       })
+      throw error
+    }
+  }
+
+  async createProject() {
+    try {
+      this.log('Creating test project...')
+      const response = await fetch(`${SERVER_URL}/api/v1/projects`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          name: 'Integration Test Project',
+          description: 'Project for integration graph test',
+          isPublic: false,
+          tags: ['integration', 'test'],
+          settings: { autoCategorize: true, chunkSize: 1000, maxTokens: 8000, aiModel: 'gpt-4' },
+          collaborators: []
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Project creation failed: ${response.status}`)
+      }
+      const result = await response.json()
+      if (!result.success || !result.data?.id) {
+        throw new Error('Project creation unsuccessful')
+      }
+      this.projectId = result.data.id
+      this.log(`Project created: ${this.projectId}`, 'success')
+      this.testResults.push({ test: 'Project Creation', status: 'PASSED' })
+    } catch (error) {
+      this.log(`Project creation failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Project Creation', status: 'FAILED', error: error.message })
       throw error
     }
   }
@@ -456,6 +492,48 @@ class IntegrationTester {
     }
   }
 
+  async testProjectGraph(contextId) {
+    try {
+      this.log(`Testing project graph for context: ${contextId}`)
+      const response = await fetch(`${SERVER_URL}/api/v1/contexts/${contextId}/graph`, {
+        headers: {
+          'x-user-id': '507f1f77bcf86cd799439011'
+        }
+      })
+      if (!response.ok) {
+        throw new Error(`Graph fetch failed: ${response.status}`)
+      }
+      const result = await response.json()
+      if (!result.success || !result.data) {
+        throw new Error('Graph fetch unsuccessful')
+      }
+      const graph = result.data
+      if (!graph.nodes || !graph.edges) {
+        throw new Error('Graph missing nodes or edges')
+      }
+      // Basic sanity checks for efficient build
+      this.log(`Graph nodes: ${graph.nodes.length}`)
+      this.log(`Graph edges: ${graph.edges.length}`)
+      if (graph.nodes.length === 0) {
+        throw new Error('Expected at least 1 graph node')
+      }
+      // Ensure edges reference valid node ids
+      const nodeIds = new Set(graph.nodes.map(n => n.id))
+      for (const e of graph.edges) {
+        if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) {
+          throw new Error(`Edge references unknown nodes: ${e.source} -> ${e.target}`)
+        }
+      }
+      this.log('Project graph test passed', 'success')
+      this.testResults.push({ test: 'Project Graph', status: 'PASSED', nodeCount: graph.nodes.length, edgeCount: graph.edges.length })
+      return graph
+    } catch (error) {
+      this.log(`Project graph test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Project Graph', status: 'FAILED', error: error.message })
+      throw error
+    }
+  }
+
   async runAllTests() {
     try {
       this.log('🚀 Starting Full Integration Test Suite...\n')
@@ -466,6 +544,9 @@ class IntegrationTester {
       // Phase 2: Start Server
       await this.startServer()
       
+      // Phase 2.5: Create Project for Graph Tests
+      await this.createProject()
+
       // Phase 3: Basic Health Check
       await this.testHealthEndpoint()
       
@@ -490,12 +571,16 @@ class IntegrationTester {
       // Phase 8: Test Context Listing
       this.log('\n📝 Testing Context Listing')
       await this.testContextListing()
+
+      // Phase 9: Build Project Graph (prefer node-based path)
+      this.log('\n🧭 Testing Project Graph Building (Node-Preferred)')
+      await this.testProjectGraph(largeContext.id)
       
-      // Phase 9: Final Cleanup
+      // Phase 10: Final Cleanup
       this.log('\n🧹 Final Cleanup...')
       await this.cleanupDatabase()
       
-      // Phase 10: Results Summary
+      // Phase 11: Results Summary
       this.log('\n📊 Test Results Summary:')
       const passed = this.testResults.filter(r => r.status === 'PASSED').length
       const failed = this.testResults.filter(r => r.status === 'FAILED').length
