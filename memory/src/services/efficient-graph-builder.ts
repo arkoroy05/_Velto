@@ -1,4 +1,4 @@
-import { ContextNode, GraphEdge, GraphNode, ContextGraph } from '../types'
+import { ContextNode, GraphEdge, GraphNode } from '../types'
 
 // Simple cosine similarity
 function cosine(a: number[], b: number[]): number {
@@ -31,7 +31,7 @@ export interface SimilarityGroup {
 
 export class EfficientGraphBuilder {
   async buildGraph(nodes: ContextNode[]): Promise<{ graphNodes: GraphNode[]; graphEdges: GraphEdge[] }> {
-    const graphNodes: GraphNode[] = nodes.map((n, i) => ({
+    const graphNodes: GraphNode[] = nodes.map((n) => ({
       id: n.id,
       contextId: (n as any).parentNodeId || (n as any)._id || undefined,
       type: 'conversation' as any,
@@ -58,11 +58,13 @@ export class EfficientGraphBuilder {
     const groups: SimilarityGroup[] = []
     let start = 0
     while (start < keyed.length) {
-      const key = keyed[start].k
+      const key = keyed[start]?.k
       let end = start
-      while (end < keyed.length && keyed[end].k === key) end++
+      while (end < keyed.length && keyed[end]?.k === key) end++
       const indices = keyed.slice(start, end).map(x => x.i)
-      groups.push({ centroidIndex: indices[0], indices })
+      if (indices.length > 0) {
+        groups.push({ centroidIndex: indices[0]!, indices })
+      }
       start = end
     }
     return groups
@@ -72,14 +74,20 @@ export class EfficientGraphBuilder {
     const edges: GraphEdge[] = []
     for (const g of groups) {
       const base = g.centroidIndex
+      const baseNode = nodes[base]
+      if (!baseNode) continue
+      
       for (const idx of g.indices) {
         if (idx === base) continue
-        const w = this.computeSimilarity(nodes[base], nodes[idx])
+        const idxNode = nodes[idx]
+        if (!idxNode) continue
+        
+        const w = this.computeSimilarity(baseNode, idxNode)
         if (w > 0.2) {
           edges.push({
-            id: `${nodes[base].id}-${nodes[idx].id}`,
-            source: nodes[base].id,
-            target: nodes[idx].id,
+            id: `${baseNode.id}-${idxNode.id}`,
+            source: baseNode.id,
+            target: idxNode.id,
             type: w > 0.7 ? 'similar' : 'related',
             weight: w,
             label: `${Math.round(w * 100)}%`
@@ -99,12 +107,20 @@ export class EfficientGraphBuilder {
     for (let i = 0; i < centroids.length - 1; i++) {
       const a = centroids[i]
       const b = centroids[i + 1]
-      const w = this.computeSimilarity(nodes[a], nodes[b])
+      
+      if (a === undefined || b === undefined) continue
+      
+      const nodeA = nodes[a]
+      const nodeB = nodes[b]
+      
+      if (!nodeA || !nodeB) continue
+      
+      const w = this.computeSimilarity(nodeA, nodeB)
       if (w > 0.1) {
         edges.push({
-          id: `${nodes[a].id}-${nodes[b].id}`,
-          source: nodes[a].id,
-          target: nodes[b].id,
+          id: `${nodeA.id}-${nodeB.id}`,
+          source: nodeA.id,
+          target: nodeB.id,
           type: 'related',
           weight: w,
           label: `${Math.round(w * 100)}%`

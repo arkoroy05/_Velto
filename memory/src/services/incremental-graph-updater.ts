@@ -1,4 +1,4 @@
-import { ContextGraph, ContextNode, GraphEdge, GraphNode } from '../types'
+import { ContextGraph, ContextNode, GraphNode } from '../types'
 import { EfficientGraphBuilder } from './efficient-graph-builder'
 
 export class IncrementalGraphUpdater {

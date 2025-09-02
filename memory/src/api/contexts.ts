@@ -862,7 +862,7 @@ router.get('/:id/graph', extractUserId, async (req, res): Promise<void> => {
           .project({ _id: 1 })
           .toArray()
 
-        const projectIds = projectContexts.map(c => c._id)
+        const projectIds = projectContexts.map(c => c['_id'])
         let hasNodes = false
         if (projectIds.length > 0) {
           const count = await nodesCollection.countDocuments({ 'metadata.originalContextId': { $in: projectIds } })

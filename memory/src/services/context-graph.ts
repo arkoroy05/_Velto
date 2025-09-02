@@ -148,7 +148,7 @@ export class ContextGraphService {
 
     // Load latest nodes for this project's contexts
     const projectContexts = await contextsCollection.find({ projectId, userId }).project({ _id: 1 }).toArray()
-    const ids = projectContexts.map(c => c._id)
+    const ids = projectContexts.map(c => c['_id'])
     const nodeDocs = await nodesCollection.find({ 'metadata.originalContextId': { $in: ids } }).limit(2000).toArray()
 
     const { graphNodes, graphEdges } = await builder.buildGraph(nodeDocs)
