@@ -52,22 +52,19 @@ class ApiService {
   }
 
   async createContext(contextData) {
+    // Remove fields that the backend doesn't expect
+    const { conversation, userId, ...cleanData } = contextData
+    
     return this.request('/contexts', {
       method: 'POST',
-      body: JSON.stringify({
-        ...contextData,
-        userId: this.userId
-      })
+      body: JSON.stringify(cleanData)
     })
   }
 
   async updateContext(contextId, updateData) {
     return this.request(`/contexts/${contextId}`, {
       method: 'PUT',
-      body: JSON.stringify({
-        ...updateData,
-        userId: this.userId
-      })
+      body: JSON.stringify(updateData)
     })
   }
 
@@ -79,13 +76,14 @@ class ApiService {
 
   // Search API
   async searchContexts(query, params = {}) {
-    const queryString = new URLSearchParams({
-      query: query, // Changed from 'q' to 'query' to match backend expectation
-      userId: this.userId,
-      ...params
-    }).toString()
-    
-    return this.request(`/search?${queryString}`)
+    return this.request('/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        query: query,
+        userId: this.userId,
+        ...params
+      })
+    })
   }
 
   // Prompt Version API - Generate injectable prompts from contexts
@@ -120,33 +118,17 @@ class ApiService {
     return this.request(`/projects?${queryString}`)
   }
 
-  // Contexts API
-  async getContexts(params = {}) {
-    const queryString = new URLSearchParams({
-      userId: this.userId,
-      ...params
-    }).toString()
-    
-    return this.request(`/contexts?${queryString}`)
-  }
-
   async createProject(projectData) {
     return this.request('/projects', {
       method: 'POST',
-      body: JSON.stringify({
-        ...projectData,
-        userId: this.userId
-      })
+      body: JSON.stringify(projectData)
     })
   }
 
   async updateProject(projectId, updateData) {
     return this.request(`/projects/${projectId}`, {
       method: 'PUT',
-      body: JSON.stringify({
-        ...updateData,
-        userId: this.userId
-      })
+      body: JSON.stringify(updateData)
     })
   }
 
