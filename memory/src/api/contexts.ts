@@ -270,6 +270,16 @@ router.post('/', extractUserId, async (req, res): Promise<void> => {
       
       logger.info(`Created ${contextNodes.length} ContextNodes for context ${result.insertedId}`)
       
+      // Index nodes for search
+      try {
+        const { SearchIndexer } = require('../services/search-indexer')
+        const searchIndexer = new SearchIndexer()
+        await searchIndexer.indexNodes(contextNodes)
+        logger.info(`Indexed ${contextNodes.length} ContextNodes for search`)
+      } catch (indexError) {
+        logger.warn(`Failed to index ContextNodes: ${indexError}`)
+      }
+      
       // Update the context with chunk information
       const chunkCount = contextNodes.length
       await collection.updateOne(

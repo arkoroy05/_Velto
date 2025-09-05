@@ -222,16 +222,15 @@ class IntegrationTester {
   async startServer() {
     try {
       this.log('Starting backend server...')
-      
+      const cwd = path.join(__dirname, '..')
+      // Build synchronously to ensure routes are compiled
+      await execAsync('npm run build', { cwd })
       // Start server in background
-      this.serverProcess = exec('npm start', {
-        cwd: path.join(__dirname, '..'),
-        detached: true
-      })
+      this.serverProcess = exec('npm start', { cwd, detached: true })
       
       // Wait for server to start
       let attempts = 0
-      const maxAttempts = 30
+      const maxAttempts = 90
       
       while (attempts < maxAttempts) {
         try {
@@ -534,6 +533,241 @@ class IntegrationTester {
     }
   }
 
+  async testTextSearch() {
+    try {
+      this.log('Testing text search functionality...')
+      const response = await fetch(`${SERVER_URL}/api/v1/search/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          query: 'chunking system',
+          options: {
+            limit: 5,
+            includeHighlights: true
+          }
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Text search failed: ${response.status}`)
+      }
+      const result = await response.json()
+      if (!result.success || !result.data) {
+        throw new Error('Text search unsuccessful')
+      }
+      const searchData = result.data
+      this.log(`Text search results: ${searchData.results.length} found`)
+      if (searchData.results.length > 0) {
+        this.log(`Top result: ${searchData.results[0].title} (score: ${searchData.results[0].score})`)
+      }
+      this.log('Text search test passed', 'success')
+      this.testResults.push({ test: 'Text Search', status: 'PASSED', resultCount: searchData.results.length })
+      return searchData
+    } catch (error) {
+      this.log(`Text search test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Text Search', status: 'FAILED', error: error.message })
+      throw error
+    }
+  }
+
+  async testSemanticSearch() {
+    try {
+      this.log('Testing semantic search functionality...')
+      const response = await fetch(`${SERVER_URL}/api/v1/search/semantic`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          query: 'artificial intelligence algorithms',
+          options: {
+            limit: 3
+          }
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Semantic search failed: ${response.status}`)
+      }
+      const result = await response.json()
+      if (!result.success || !result.data) {
+        throw new Error('Semantic search unsuccessful')
+      }
+      const searchData = result.data
+      this.log(`Semantic search results: ${searchData.results.length} found`)
+      if (searchData.results.length > 0) {
+        this.log(`Top result: ${searchData.results[0].title} (score: ${searchData.results[0].score})`)
+      }
+      this.log('Semantic search test passed', 'success')
+      this.testResults.push({ test: 'Semantic Search', status: 'PASSED', resultCount: searchData.results.length })
+      return searchData
+    } catch (error) {
+      this.log(`Semantic search test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Semantic Search', status: 'FAILED', error: error.message })
+      throw error
+    }
+  }
+
+  async testHybridSearch() {
+    try {
+      this.log('Testing hybrid search functionality...')
+      const response = await fetch(`${SERVER_URL}/api/v1/search/hybrid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          query: 'performance optimization',
+          options: {
+            limit: 5
+          }
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Hybrid search failed: ${response.status}`)
+      }
+      const result = await response.json()
+      if (!result.success || !result.data) {
+        throw new Error('Hybrid search unsuccessful')
+      }
+      const searchData = result.data
+      this.log(`Hybrid search results: ${searchData.results.length} found`)
+      if (searchData.results.length > 0) {
+        this.log(`Top result: ${searchData.results[0].title} (score: ${searchData.results[0].score})`)
+      }
+      this.log('Hybrid search test passed', 'success')
+      this.testResults.push({ test: 'Hybrid Search', status: 'PASSED', resultCount: searchData.results.length })
+      return searchData
+    } catch (error) {
+      this.log(`Hybrid search test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Hybrid Search', status: 'FAILED', error: error.message })
+      throw error
+    }
+  }
+
+  async testGraphSearch(contextId) {
+    try {
+      this.log(`Testing graph search for context: ${contextId}`)
+      const response = await fetch(`${SERVER_URL}/api/v1/search/graph`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          query: 'chunking system performance',
+          contextId: contextId,
+          options: {
+            maxResults: 5,
+            maxDepth: 2,
+            includeContext: true,
+            maxContextTokens: 2000
+          }
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Graph search failed: ${response.status}`)
+      }
+      const result = await response.json()
+      if (!result.success || !result.data) {
+        throw new Error('Graph search unsuccessful')
+      }
+      const searchData = result.data
+      this.log(`Graph search results: ${searchData.results.length} found`)
+      if (searchData.results.length > 0) {
+        this.log(`Top result: ${searchData.results[0].title} (relevance: ${searchData.results[0].relevanceScore})`)
+        if (searchData.results[0].contextWindow) {
+          this.log(`Context window length: ${searchData.results[0].contextWindow.length} chars`)
+        }
+      }
+      this.log('Graph search test passed', 'success')
+      this.testResults.push({ test: 'Graph Search', status: 'PASSED', resultCount: searchData.results.length })
+      return searchData
+    } catch (error) {
+      this.log(`Graph search test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Graph Search', status: 'FAILED', error: error.message })
+      throw error
+    }
+  }
+
+  async testContextWindow(fallbackContextId) {
+    try {
+      this.log('Testing context window building...')
+      // First get some node IDs from a search
+      const searchResponse = await fetch(`${SERVER_URL}/api/v1/search/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          query: 'chunking',
+          options: { limit: 3 }
+        })
+      })
+      if (!searchResponse.ok) {
+        throw new Error(`Search for context window failed: ${searchResponse.status}`)
+      }
+      const searchResult = await searchResponse.json()
+      let nodeIds = []
+      if (!searchResult.success) {
+        throw new Error('Search API failed for context window test')
+      }
+      if (searchResult.data.results.length === 0) {
+        // Fallback: use nodes from provided context
+        if (!fallbackContextId) throw new Error('No search results and no fallback context provided')
+        const ctxRes = await fetch(`${SERVER_URL}/api/v1/contexts/${fallbackContextId}`, {
+          headers: { 'x-user-id': '507f1f77bcf86cd799439011' }
+        })
+        if (!ctxRes.ok) throw new Error(`Fallback context fetch failed: ${ctxRes.status}`)
+        const ctxJson = await ctxRes.json()
+        if (!ctxJson.success || !ctxJson.data?.contextNodes || ctxJson.data.contextNodes.length === 0) {
+          throw new Error('No nodes available for fallback context window test')
+        }
+        nodeIds = ctxJson.data.contextNodes.map(n => n.id)
+      } else {
+        nodeIds = searchResult.data.results.map(r => r.nodeId)
+      }
+      const response = await fetch(`${SERVER_URL}/api/v1/search/context-window`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          query: 'chunking system',
+          nodeIds: nodeIds,
+          maxTokens: 1500,
+          options: {
+            includeMetadata: true,
+            preserveStructure: true,
+            addSeparators: true
+          }
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Context window failed: ${response.status}`)
+      }
+      const result = await response.json()
+      if (!result.success || !result.data) {
+        throw new Error('Context window unsuccessful')
+      }
+      const windowData = result.data
+      this.log(`Context window built: ${windowData.contextWindow.totalTokens} tokens`)
+      this.log(`Window metadata: ${windowData.contextWindow.metadata.nodeCount} nodes, ${(windowData.contextWindow.metadata.coverage * 100).toFixed(1)}% coverage`)
+      this.log('Context window test passed', 'success')
+      this.testResults.push({ test: 'Context Window', status: 'PASSED', tokenCount: windowData.contextWindow.totalTokens })
+      return windowData
+    } catch (error) {
+      this.log(`Context window test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Context Window', status: 'FAILED', error: error.message })
+      throw error
+    }
+  }
+
   async runAllTests() {
     try {
       this.log('🚀 Starting Full Integration Test Suite...\n')
@@ -576,11 +810,19 @@ class IntegrationTester {
       this.log('\n🧭 Testing Project Graph Building (Node-Preferred)')
       await this.testProjectGraph(largeContext.id)
       
-      // Phase 10: Final Cleanup
+      // Phase 10: Test Search Functionality
+      this.log('\n🔍 Testing Search & Retrieval Engine')
+      await this.testTextSearch()
+      await this.testSemanticSearch()
+      await this.testHybridSearch()
+      await this.testGraphSearch(largeContext.id)
+      await this.testContextWindow(largeContext.id)
+      
+      // Phase 11: Final Cleanup
       this.log('\n🧹 Final Cleanup...')
       await this.cleanupDatabase()
       
-      // Phase 11: Results Summary
+      // Phase 12: Results Summary
       this.log('\n📊 Test Results Summary:')
       const passed = this.testResults.filter(r => r.status === 'PASSED').length
       const failed = this.testResults.filter(r => r.status === 'FAILED').length

@@ -212,6 +212,7 @@ export interface OptimizedChunk {
 // Enhanced ContextNode interface for chunked contexts
 export interface ContextNode extends BaseEntity {
   id: string
+  title?: string
   content: string
   tokenCount: number
   importance: number

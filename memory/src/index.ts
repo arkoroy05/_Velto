@@ -181,11 +181,22 @@ const startServer = async () => {
     await databaseService.connect()
     logger.info('Connected to MongoDB')
     
+    // Initialize search indexes
+    try {
+      const { SearchIndexer } = require('./services/search-indexer')
+      const searchIndexer = new SearchIndexer()
+      await searchIndexer.initializeIndexes()
+      logger.info('Search indexes initialized')
+    } catch (indexError) {
+      logger.warn(`Failed to initialize search indexes: ${indexError}`)
+    }
+    
     // Start Express server
     app.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Velto Memory Backend server running on port ${PORT}`)
       logger.info(`📊 Health check: http://0.0.0.0:${PORT}/health`)
       logger.info(`📚 API docs: http://0.0.0.0:${PORT}/api/v1/docs`)
+      logger.info(`🔍 Search API: http://0.0.0.0:${PORT}/api/v1/search`)
     })
   } catch (error) {
     logger.error('Failed to start server:', error)
