@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import { type State, WagmiProvider } from "wagmi";
 import "@rainbow-me/rainbowkit/styles.css";
 
@@ -16,7 +16,37 @@ type Props = {
 
 export function Providers({ children, initialState }: Props) {
   const [config] = useState(() => getConfig());
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
+    },
+  }));
+
+  // Ensure QueryClient is properly initialized
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Client-side only operations
+      console.log('QueryClient initialized:', queryClient);
+      
+      // Add error boundary for React Query
+      queryClient.setDefaultOptions({
+        queries: {
+          onError: (error) => {
+            console.error('React Query error:', error);
+          },
+        },
+        mutations: {
+          onError: (error) => {
+            console.error('React Query mutation error:', error);
+          },
+        },
+      });
+    }
+  }, [queryClient]);
 
   return (
     <WagmiProvider config={config} initialState={initialState}>
