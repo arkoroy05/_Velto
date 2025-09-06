@@ -8,6 +8,7 @@ import { cookieToInitialState } from "wagmi";
 import { getConfig } from "./config";
 import { Providers } from "./providers"
 import { Toaster } from "@/components/ui/toaster"
+import { EmailPopupProvider } from "@/components/email-popup-provider"
 
 export const metadata: Metadata = {
   title: "Velto- The AI Hivemind ",
@@ -38,8 +39,10 @@ html {
       </head>
       <body className="bg-black">
         <Providers initialState={initialState}>
-        {children}
-        <Toaster />
+        <EmailPopupProvider>
+          {children}
+          <Toaster />
+        </EmailPopupProvider>
         </Providers>
       </body>
     </html>

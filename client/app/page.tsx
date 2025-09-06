@@ -10,8 +10,8 @@ import { NavBar } from "@/components/ui/tubelight-navbar"
 import AnimatedGradientBackground from "@/components/ui/background";
 import { AnimatePresence, motion, useInView, Variants } from "framer-motion";
 import { useRef } from "react";
-import { useRouter } from "next/navigation"
 import { Testimonials } from "@/components/ui/demo";
+import { useEmailPopup } from "@/components/email-popup-provider";
 
 const navItems = [
   { name: "Home", url: "#home", icon: Home },
@@ -21,7 +21,7 @@ const navItems = [
 ]
 
 export default function TuringLanding() {
-  const router = useRouter();
+  const { openPopup } = useEmailPopup();
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden relative">
       {/* Subtle blue background gradient overlays */}
@@ -58,7 +58,7 @@ export default function TuringLanding() {
               Stop re-explaining, re-pasting, and re-debugging across AI tools.
             </p>
             <div className="flex gap-5 items-center">
-              <StarBorder as="button" onClick={() => router.push("/dashboard")} className="cursor-pointer select-none">
+              <StarBorder as="button" onClick={openPopup} className="cursor-pointer select-none">
                 <span className="inline-flex items-center gap-2.5">
                   Get Started
                   <ArrowRight className="w-5 h-5" />
