@@ -124,6 +124,27 @@ Title:`
   }
 
   /**
+   * Generate a response using the generation model
+   */
+  async generateResponse(prompt: string): Promise<string> {
+    try {
+      const response = await this.gemini.models.generateContent({
+        model: this.generationModel,
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+          maxOutputTokens: 1000
+        }
+      })
+
+      return response.text || ''
+    } catch (error) {
+      logger.error('Error generating response:', error)
+      throw new Error(`Failed to generate response: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  /**
    * Generate and store embeddings for a context
    */
   async generateContextEmbeddings(context: Context): Promise<Context> {

@@ -768,6 +768,107 @@ class IntegrationTester {
     }
   }
 
+  async testContextInsertion(contextId) {
+    try {
+      this.log(`Testing context insertion system for context: ${contextId}`)
+      
+      // Test 1: Basic context insertion
+      const testPrompt = "How do I debug this error in my code?"
+      const response = await fetch(`${SERVER_URL}/api/v1/context-insertion/generate`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          userPrompt: testPrompt,
+          projectId: this.projectId,
+          userId: '507f1f77bcf86cd799439011',
+          maxTokens: 1500,
+          contextType: 'mixed',
+          priority: 'relevance'
+        })
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.log('Response status:', response.status)
+        console.log('Response headers:', response.headers)
+        console.log('Error response:', errorText)
+        throw new Error(`Context insertion failed: ${response.status} - ${errorText}`)
+      }
+      
+      const data = await response.json()
+      console.log('Context insertion response:', JSON.stringify(data, null, 2))
+      
+      if (!data.success) {
+        throw new Error(`Context insertion failed: ${data.error}`)
+      }
+      
+      this.log(`Context insertion generated: ${data.data.tokenCount} tokens`)
+      this.log(`Confidence: ${(data.data.confidence * 100).toFixed(1)}%`)
+      this.log(`Source nodes: ${data.data.sourceNodes.length}`)
+      this.log(`Processing time: ${data.data.metadata.processingTime}ms`)
+      
+      // Test 2: Prompt analysis
+      const analysisResponse = await fetch(`${SERVER_URL}/api/v1/context-insertion/analyze-prompt`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          prompt: testPrompt
+        })
+      })
+      
+      if (!analysisResponse.ok) {
+        throw new Error(`Prompt analysis failed: ${analysisResponse.status}`)
+      }
+      
+      const analysisData = await analysisResponse.json()
+      
+      if (!analysisData.success) {
+        throw new Error(`Prompt analysis failed: ${analysisData.error}`)
+      }
+      
+      this.log(`Prompt analysis - Intent: ${analysisData.data.intent}`)
+      this.log(`Keywords: ${analysisData.data.keywords.join(', ')}`)
+      this.log(`Context type: ${analysisData.data.contextType}`)
+      this.log(`Urgency: ${analysisData.data.urgency}`)
+      
+      // Test 3: Different priority types
+      const priorityTest = await fetch(`${SERVER_URL}/api/v1/context-insertion/generate`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          userPrompt: "What was discussed in our last meeting?",
+          projectId: this.projectId,
+          userId: '507f1f77bcf86cd799439011',
+          maxTokens: 1000,
+          priority: 'recency'
+        })
+      })
+      
+      if (priorityTest.ok) {
+        const priorityData = await priorityTest.json()
+        if (priorityData.success) {
+          this.log(`Priority test (recency): ${priorityData.data.tokenCount} tokens`)
+        }
+      }
+      
+      this.log('Context insertion test passed', 'success')
+      this.testResults.push({ test: 'Context Insertion System', status: 'PASSED' })
+      
+    } catch (error) {
+      this.log(`Context insertion test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Context Insertion System', status: 'FAILED', error: error.message })
+    }
+  }
+
   async runAllTests() {
     try {
       this.log('🚀 Starting Full Integration Test Suite...\n')
@@ -817,6 +918,10 @@ class IntegrationTester {
       await this.testHybridSearch()
       await this.testGraphSearch(largeContext.id)
       await this.testContextWindow(largeContext.id)
+      
+      // Phase 10.5: Test Context Insertion System
+      this.log('\n🎯 Testing Context Insertion System')
+      await this.testContextInsertion(largeContext.id)
       
       // Phase 11: Final Cleanup
       this.log('\n🧹 Final Cleanup...')

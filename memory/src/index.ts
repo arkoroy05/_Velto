@@ -15,6 +15,7 @@ import contextRoutes from './api/contexts'
 import projectRoutes from './api/projects'
 import userRoutes from './api/users'
 import searchRoutes from './api/search'
+import contextInsertionRoutes from './api/context-insertion'
 import webhookRoutes from './api/webhooks'
 import analyticsRoutes from './api/analytics'
 
@@ -115,6 +116,7 @@ app.use('/api/v1/contexts', contextRoutes)
 app.use('/api/v1/projects', projectRoutes)
 app.use('/api/v1/users', userRoutes)
 app.use('/api/v1/search', searchRoutes)
+app.use('/api/v1/context-insertion', contextInsertionRoutes)
 app.use('/api/v1/webhooks', webhookRoutes)
 app.use('/api/v1/analytics', analyticsRoutes)
 
@@ -129,6 +131,7 @@ app.get('/api/v1/docs', (_req, res) => {
       projects: '/api/v1/projects',
       users: '/api/v1/users',
       search: '/api/v1/search',
+      contextInsertion: '/api/v1/context-insertion',
       webhooks: '/api/v1/webhooks',
       analytics: '/api/v1/analytics'
     },
