@@ -869,6 +869,139 @@ class IntegrationTester {
     }
   }
 
+  async testAdvancedRAG(contextId) {
+    try {
+      this.log('🎯 Testing Advanced RAG System...')
+      
+      // Get context nodes for RAG testing
+      const contextResponse = await fetch(`${SERVER_URL}/api/v1/contexts/${contextId}`, {
+        headers: { 'x-user-id': '507f1f77bcf86cd799439011' }
+      })
+      
+      if (!contextResponse.ok) {
+        throw new Error(`Context retrieval failed: ${contextResponse.status}`)
+      }
+      
+      const contextData = await contextResponse.json()
+      const contextNodes = contextData.data.contextNodes || []
+      
+      if (contextNodes.length === 0) {
+        this.log('No context nodes available for RAG testing', 'warn')
+        return
+      }
+      
+      // Test RAG generation
+      const ragResponse = await fetch(`${SERVER_URL}/api/v1/advanced-rag/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          query: 'What are the main features and capabilities described in this context?',
+          contextNodes: contextNodes.slice(0, 5), // Use first 5 nodes
+          options: {
+            maxTokens: 500,
+            enableValidation: true,
+            enableHallucinationDetection: true,
+            rerankingOptions: {
+              enableReranking: true,
+              rerankingStrategy: 'hybrid'
+            }
+          }
+        })
+      })
+      
+      if (!ragResponse.ok) {
+        throw new Error(`RAG generation failed: ${ragResponse.status}`)
+      }
+      
+      const ragData = await ragResponse.json()
+      if (!ragData.success) {
+        throw new Error(`RAG generation failed: ${ragData.error}`)
+      }
+      
+      this.log(`RAG response generated: ${ragData.data.response.length} characters`)
+      this.log(`Confidence: ${(ragData.data.confidence * 100).toFixed(1)}%`)
+      this.log(`Quality score: ${ragData.data.metadata.qualityScore.toFixed(2)}`)
+      this.log(`Validation passed: ${ragData.data.metadata.validationPassed}`)
+      this.log(`Hallucination detected: ${ragData.data.hallucinationDetection.isHallucination}`)
+      
+      // Test enhanced context analysis
+      const analysisResponse = await fetch(`${SERVER_URL}/api/v1/advanced-rag/analyze-context`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          contextNode: contextNodes[0] // Analyze first node
+        })
+      })
+      
+      if (analysisResponse.ok) {
+        const analysisData = await analysisResponse.json()
+        if (analysisData.success) {
+          this.log(`Enhanced analysis - Key info: ${analysisData.data.keyInformation.length} items`)
+          this.log(`Quality metrics: ${analysisData.data.qualityMetrics.overall.toFixed(2)}`)
+          this.log(`Contextual insights: ${analysisData.data.contextualInsights.length}`)
+        }
+      }
+      
+      // Test response validation
+      const validationResponse = await fetch(`${SERVER_URL}/api/v1/advanced-rag/validate-response`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          response: ragData.data.response,
+          contextNodes: contextNodes.slice(0, 3),
+          originalQuery: 'What are the main features and capabilities described in this context?'
+        })
+      })
+      
+      if (validationResponse.ok) {
+        const validationData = await validationResponse.json()
+        if (validationData.success) {
+          this.log(`Response validation - Overall score: ${validationData.data.overallScore.toFixed(2)}`)
+          this.log(`Factual accuracy: ${validationData.data.factualAccuracy.toFixed(2)}`)
+          this.log(`Issues found: ${validationData.data.issues.length}`)
+        }
+      }
+      
+      // Test hallucination detection
+      const hallucinationResponse = await fetch(`${SERVER_URL}/api/v1/advanced-rag/detect-hallucination`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': '507f1f77bcf86cd799439011'
+        },
+        body: JSON.stringify({
+          response: ragData.data.response,
+          contextNodes: contextNodes.slice(0, 3)
+        })
+      })
+      
+      if (hallucinationResponse.ok) {
+        const hallucinationData = await hallucinationResponse.json()
+        if (hallucinationData.success) {
+          this.log(`Hallucination detection - Is hallucination: ${hallucinationData.data.isHallucination}`)
+          this.log(`Confidence: ${hallucinationData.data.confidence.toFixed(2)}`)
+          this.log(`Detected patterns: ${hallucinationData.data.detectedPatterns.length}`)
+        }
+      }
+      
+      this.log('Advanced RAG test passed', 'success')
+      this.testResults.push({ test: 'Advanced RAG System', status: 'PASSED' })
+      
+    } catch (error) {
+      this.log(`Advanced RAG test failed: ${error.message}`, 'error')
+      this.testResults.push({ test: 'Advanced RAG System', status: 'FAILED', error: error.message })
+    }
+  }
+
   async runAllTests() {
     try {
       this.log('🚀 Starting Full Integration Test Suite...\n')
@@ -922,6 +1055,10 @@ class IntegrationTester {
       // Phase 10.5: Test Context Insertion System
       this.log('\n🎯 Testing Context Insertion System')
       await this.testContextInsertion(largeContext.id)
+      
+      // Phase 10.6: Test Advanced RAG System
+      this.log('\n🎯 Testing Advanced RAG System')
+      await this.testAdvancedRAG(largeContext.id)
       
       // Phase 11: Final Cleanup
       this.log('\n🧹 Final Cleanup...')
