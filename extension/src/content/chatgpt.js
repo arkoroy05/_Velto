@@ -402,12 +402,19 @@ function monitorAIResponses() {
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === 1) { // Element node
-          // Look for ChatGPT response containers
+          // Look for ChatGPT response containers with more comprehensive selectors
           const responseSelectors = [
             '[data-message-author-role="assistant"]',
             '.group.w-full.text-gray-800',
             '[class*="assistant"]',
-            '.markdown.prose'
+            '.markdown.prose',
+            '[data-testid*="conversation-turn"]',
+            '[data-testid*="message"]',
+            '.conversation-turn',
+            '.message',
+            '[role="assistant"]',
+            '.ai-message',
+            '.response'
           ];
 
           responseSelectors.forEach(selector => {
@@ -418,54 +425,8 @@ function monitorAIResponses() {
               if (!responseElement.dataset.veltoProcessed) {
                 responseElement.dataset.veltoProcessed = 'true';
                 
-                // Wait a bit for the content to fully load
-                setTimeout(() => {
-                  const responseText = responseElement.innerText || responseElement.textContent || '';
-                  if (responseText.trim()) {
-                    console.log('[Velto] 🤖 CHATGPT RESPONSE:', responseText.trim());
-                    
-                    // Map response to the latest prompt
-                    if (conversationContext.conversationTurns.length > 0) {
-                      const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
-                      if (latestTurn && !latestTurn.response) {
-                        latestTurn.response = responseText.trim();
-                        conversationContext.waitingForResponse = false; // Reset the flag
-                        console.log('[Velto] ✅ Mapped response to prompt:', latestTurn.prompt.substring(0, 50) + '...');
-                      } else {
-                        // If the latest turn already has a response, look for an earlier one without response
-                        let turnToUpdate = null;
-                        for (let i = conversationContext.conversationTurns.length - 1; i >= 0; i--) {
-                          if (!conversationContext.conversationTurns[i].response) {
-                            turnToUpdate = conversationContext.conversationTurns[i];
-                            break;
-                          }
-                        }
-                        
-                        if (turnToUpdate) {
-                          turnToUpdate.response = responseText.trim();
-                          conversationContext.waitingForResponse = false; // Reset the flag
-                          console.log('[Velto] ✅ Mapped response to earlier prompt:', turnToUpdate.prompt.substring(0, 50) + '...');
-                        } else {
-                          // If no prompt found, create a new turn with empty prompt
-                          conversationContext.conversationTurns.push({
-                            prompt: '[Previous conversation]',
-                            response: responseText.trim(),
-                            timestamp: Date.now()
-                          });
-                          console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
-                        }
-                      }
-                    } else {
-                      // If no turns exist yet, create first turn
-                      conversationContext.conversationTurns.push({
-                        prompt: '[Initial conversation]',
-                        response: responseText.trim(),
-                        timestamp: Date.now()
-                      });
-                      console.log('[Velto] 🆕 Created first turn with response');
-                    }
-                  }
-                }, 1000);
+                // Start comprehensive response monitoring
+                monitorResponseElement(responseElement);
               }
             });
           });
@@ -476,6 +437,283 @@ function monitorAIResponses() {
 
   respObserver.observe(document.body, { childList: true, subtree: true });
   responseObserver = respObserver;
+}
+
+// Enhanced response monitoring with streaming support and completion detection
+function monitorResponseElement(responseElement) {
+  let lastCapturedText = '';
+  let captureAttempts = 0;
+  let isComplete = false;
+  let monitoringInterval = null;
+  let lastUpdateTime = Date.now();
+  
+  const MAX_CAPTURE_ATTEMPTS = 20; // Maximum attempts to capture complete response
+  const CAPTURE_INTERVAL = 500; // Check every 500ms
+  const STABILITY_THRESHOLD = 2000; // Consider complete if no changes for 2 seconds
+  const MAX_MONITORING_TIME = 30000; // Stop monitoring after 30 seconds
+  
+  console.log('[Velto] 🔍 Starting enhanced response monitoring for element');
+  
+  const captureResponse = () => {
+    const responseText = extractResponseText(responseElement);
+    
+    if (responseText && responseText.trim() && responseText !== lastCapturedText) {
+      console.log('[Velto] 📝 Response text updated:', responseText.substring(0, 100) + '...');
+      lastCapturedText = responseText;
+      lastUpdateTime = Date.now();
+      
+      // Check if response appears complete
+      if (isResponseComplete(responseText)) {
+        console.log('[Velto] ✅ Response appears complete');
+        isComplete = true;
+        processCompleteResponse(responseText);
+        stopMonitoring();
+        return;
+      }
+    }
+    
+    captureAttempts++;
+    
+    // Check if we should stop monitoring
+    if (captureAttempts >= MAX_CAPTURE_ATTEMPTS || 
+        (Date.now() - lastUpdateTime > STABILITY_THRESHOLD && lastCapturedText) ||
+        Date.now() - lastUpdateTime > MAX_MONITORING_TIME) {
+      
+      if (lastCapturedText) {
+        console.log('[Velto] ⏰ Stopping monitoring, using captured text');
+        processCompleteResponse(lastCapturedText);
+    } else {
+        console.log('[Velto] ⚠️ No response captured after maximum attempts');
+      }
+      stopMonitoring();
+    }
+  };
+  
+  const stopMonitoring = () => {
+    if (monitoringInterval) {
+      clearInterval(monitoringInterval);
+      monitoringInterval = null;
+    }
+  };
+  
+  // Start monitoring
+  monitoringInterval = setInterval(captureResponse, CAPTURE_INTERVAL);
+  
+  // Initial capture attempt
+  setTimeout(captureResponse, 100);
+}
+
+// Extract response text with multiple fallback methods
+function extractResponseText(element) {
+  // Try multiple methods to extract text
+  const methods = [
+    () => element.innerText || element.textContent || '',
+    () => {
+      // Look for specific content containers within the element
+      const contentSelectors = [
+        '.markdown',
+        '.prose',
+        '[data-testid*="message"]',
+        '.message-content',
+        '.response-content'
+      ];
+      
+      for (const selector of contentSelectors) {
+        const contentEl = element.querySelector(selector);
+        if (contentEl) {
+          return contentEl.innerText || contentEl.textContent || '';
+        }
+      }
+      return '';
+    },
+    () => {
+      // Extract from all text nodes
+      let text = '';
+      const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+      
+      let node;
+      while (node = walker.nextNode()) {
+        text += node.textContent;
+      }
+      return text;
+    }
+  ];
+  
+  for (const method of methods) {
+    try {
+      const text = method();
+      if (text && text.trim()) {
+        return text.trim();
+      }
+  } catch (error) {
+      console.warn('[Velto] Text extraction method failed:', error);
+    }
+  }
+  
+  return '';
+}
+
+// Check if response appears complete
+function isResponseComplete(text) {
+  if (!text || text.length < 10) return false;
+  
+  // Check for common completion indicators
+  const completionIndicators = [
+    /\.$/, // Ends with period
+    /!$/, // Ends with exclamation
+    /[.!?]\s*$/, // Ends with sentence punctuation
+    /```\s*$/, // Ends with code block
+    /##\s*$/, // Ends with heading
+    /^#\s/, // Starts with heading (might be complete)
+    /^\d+\.\s/, // Starts with numbered list
+    /^-\s/, // Starts with bullet list
+    /^•\s/, // Starts with bullet
+    /^(\*\*|__).*(\*\*|__)$/, // Bold text
+    /^(\*|_).*(\*|_)$/, // Italic text
+    /^`.*`$/, // Inline code
+    /^```[\s\S]*```$/, // Code block
+    /^#{1,6}\s/, // Markdown heading
+    /^>\s/, // Blockquote
+    /^-\s/, // List item
+    /^\d+\.\s/, // Numbered list
+    /^\[.*\]\(.*\)$/, // Link
+    /^!\[.*\]\(.*\)$/, // Image
+    /^---$/, // Horizontal rule
+    /^___$/, // Horizontal rule
+    /^###\s/, // H3 heading
+    /^##\s/, // H2 heading
+    /^#\s/, // H1 heading
+  ];
+  
+  // Check if text ends with completion indicators
+  for (const indicator of completionIndicators) {
+    if (indicator.test(text)) {
+      return true;
+    }
+  }
+  
+  // Check for minimum length and structure
+  if (text.length > 50 && (
+    text.includes('.') || 
+    text.includes('!') || 
+    text.includes('?') ||
+    text.includes('\n') ||
+    text.includes('```') ||
+    text.includes('##')
+  )) {
+    return true;
+  }
+  
+  return false;
+}
+
+// Process complete response and map to conversation
+function processCompleteResponse(responseText) {
+  console.log('[Velto] 🤖 CHATGPT RESPONSE COMPLETE:', responseText.substring(0, 100) + '...');
+    
+    // Map response to the latest prompt
+    if (conversationContext.conversationTurns.length > 0) {
+      const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
+      if (latestTurn && !latestTurn.response) {
+      latestTurn.response = responseText;
+        conversationContext.waitingForResponse = false;
+      console.log('[Velto] ✅ Mapped complete response to prompt:', latestTurn.prompt.substring(0, 50) + '...');
+        
+        // Auto-save this turn immediately
+      saveCurrentTurn(latestTurn);
+      } else {
+        // If the latest turn already has a response, look for an earlier one without response
+        let turnToUpdate = null;
+        for (let i = conversationContext.conversationTurns.length - 1; i >= 0; i--) {
+          if (!conversationContext.conversationTurns[i].response) {
+            turnToUpdate = conversationContext.conversationTurns[i];
+            break;
+          }
+        }
+        
+        if (turnToUpdate) {
+        turnToUpdate.response = responseText;
+          conversationContext.waitingForResponse = false;
+        console.log('[Velto] ✅ Mapped complete response to earlier prompt:', turnToUpdate.prompt.substring(0, 50) + '...');
+          
+          // Auto-save this turn immediately
+        saveCurrentTurn(turnToUpdate);
+        } else {
+          // If no prompt found, create a new turn with empty prompt
+          const newTurn = {
+            prompt: '[Previous conversation]',
+          response: responseText,
+          timestamp: Date.now()
+          };
+          conversationContext.conversationTurns.push(newTurn);
+          console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
+          
+          // Auto-save this turn immediately
+        saveCurrentTurn(newTurn);
+        }
+      }
+    } else {
+      // If no turns exist yet, create first turn
+      const newTurn = {
+        prompt: '[Initial conversation]',
+      response: responseText,
+      timestamp: Date.now()
+      };
+      conversationContext.conversationTurns.push(newTurn);
+    console.log('[Velto] 🆕 Created first turn with complete response');
+      
+      // Auto-save this turn immediately
+    saveCurrentTurn(newTurn);
+  }
+}
+
+// Auto-save individual turn to database
+function saveCurrentTurn(turn) {
+  if (!turn || !turn.response) return;
+  
+  const turnData = {
+    title: `ChatGPT Turn - ${new Date(turn.timestamp).toLocaleString()}`,
+    content: `# ChatGPT Conversation Turn\n\n**User Prompt:**\n${turn.prompt}\n\n**AI Response:**\n${turn.response}\n\n**Timestamp:** ${new Date(turn.timestamp).toLocaleString()}`,
+    type: 'conversation_turn',
+    source: {
+      type: 'auto',
+      agentId: 'ChatGPT',
+      sessionId: conversationContext.sessionId,
+      timestamp: new Date(turn.timestamp)
+    },
+    metadata: {
+      url: location.href,
+      host: location.host,
+      tool: 'ChatGPT',
+      turnNumber: conversationContext.conversationTurns.indexOf(turn) + 1,
+      totalTurns: conversationContext.conversationTurns.length,
+      sessionDuration: turn.timestamp - conversationContext.startTime
+    },
+    conversation: {
+      conversationTurns: [turn],
+      sessionId: conversationContext.sessionId,
+      startTime: conversationContext.startTime,
+      endTime: turn.timestamp
+    }
+  };
+  
+  console.log('[Velto] 📤 Auto-saving individual turn to database');
+  
+  chrome.runtime.sendMessage({
+    type: MSG.CONTEXTS_CREATE,
+    payload: turnData,
+  }, (res) => {
+    if (res?.ok) {
+      console.log('[Velto] ✅ Individual turn saved successfully');
+    } else {
+      console.warn('[Velto] ❌ Failed to save individual turn:', res);
+    }
+  });
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

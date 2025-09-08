@@ -47,10 +47,10 @@ router.get('/', async (req, res) => {
           score: { $meta: 'textScore' }
         }
       })
-      .sort({ score: { $meta: 'textScore' } })
+        .sort({ score: { $meta: 'textScore' } })
       .limit(parseInt(limit as string))
-      .toArray()
-
+        .toArray()
+      
     logger.info(`Found ${contexts.length} contexts for query: "${query}"`)
 
     return res.json({
