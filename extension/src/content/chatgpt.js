@@ -89,19 +89,28 @@ async function handleCapture() {
     console.log('[Velto] No selection to capture');
     return;
   }
-  chrome.runtime.sendMessage({
-    type: MSG.CONTEXTS_CREATE,
-    payload: {
-      content,
-      title: 'ChatGPT selection',
-      url: location.href,
-      host: location.host,
-      tool: 'ChatGPT',
-    },
-  }, (res) => {
-    if (res?.ok) console.log('[Velto] snippet saved', res);
-    else console.warn('[Velto] failed to save snippet', res);
-  });
+  try {
+    chrome.runtime.sendMessage({
+      type: MSG.CONTEXTS_CREATE,
+      payload: {
+        content,
+        title: 'ChatGPT selection',
+        url: location.href,
+        host: location.host,
+        tool: 'ChatGPT',
+      },
+    }, (res) => {
+      if (chrome.runtime.lastError) {
+        console.warn('[Velto] ❌ Extension context error:', chrome.runtime.lastError.message);
+        return;
+      }
+      
+      if (res?.ok) console.log('[Velto] snippet saved', res);
+      else console.warn('[Velto] failed to save snippet', res);
+    });
+  } catch (error) {
+    console.warn('[Velto] ❌ Error sending message to background script:', error);
+  }
 }
 
 // Enhanced conversation monitoring
@@ -208,25 +217,34 @@ function saveConversationContext() {
   // Send to background for storage
   console.log('[Velto] 📤 Sending conversation context to background:', conversationData);
   
-  chrome.runtime.sendMessage({
-    type: MSG.CONTEXTS_CREATE,
-    payload: conversationData,
-  }, (res) => {
-    console.log('[Velto] 📥 Response from background:', res);
-    if (res?.ok) {
-      console.log('[Velto] ✅ Conversation context saved:', res);
-      // Reset conversation context
-      conversationContext = {
-        conversationTurns: [],
-        sessionId: Date.now().toString(36),
-        startTime: Date.now(),
-        currentPrompt: '',
-        waitingForResponse: false
-      };
-    } else {
-      console.warn('[Velto] ❌ Failed to save conversation context:', res);
-    }
-  });
+  try {
+    chrome.runtime.sendMessage({
+      type: MSG.CONTEXTS_CREATE,
+      payload: conversationData,
+    }, (res) => {
+      if (chrome.runtime.lastError) {
+        console.warn('[Velto] ❌ Extension context error:', chrome.runtime.lastError.message);
+        return;
+      }
+      
+      console.log('[Velto] 📥 Response from background:', res);
+      if (res?.ok) {
+        console.log('[Velto] ✅ Conversation context saved:', res);
+        // Reset conversation context
+        conversationContext = {
+          conversationTurns: [],
+          sessionId: Date.now().toString(36),
+          startTime: Date.now(),
+          currentPrompt: '',
+          waitingForResponse: false
+        };
+      } else {
+        console.warn('[Velto] ❌ Failed to save conversation context:', res);
+      }
+    });
+  } catch (error) {
+    console.warn('[Velto] ❌ Error sending message to background script:', error);
+  }
 }
 
 function buildConversationContent() {
@@ -548,14 +566,203 @@ function extractResponseText(element) {
     try {
       const text = method();
       if (text && text.trim()) {
-        return text.trim();
+        return cleanResponseText(text.trim());
       }
-  } catch (error) {
+    } catch (error) {
       console.warn('[Velto] Text extraction method failed:', error);
     }
   }
   
   return '';
+}
+
+// Enhanced content processing and cleaning
+function cleanResponseText(text) {
+  if (!text) return '';
+  
+  console.log('[Velto] 🧹 Cleaning response text...');
+  
+  // Step 1: Remove common UI artifacts and unwanted elements
+  let cleaned = text
+    // Remove common ChatGPT UI elements
+    .replace(/^you said:\s*/gmi, '')
+    .replace(/^user:\s*/gmi, '')
+    .replace(/^chatgpt:\s*/gmi, '')
+    .replace(/^assistant:\s*/gmi, '')
+    .replace(/^ai:\s*/gmi, '')
+    
+    // Remove common UI buttons and controls
+    .replace(/\b(copy|share|regenerate|edit|delete|save|export|download)\b/gi, '')
+    .replace(/↗/g, '')
+    .replace(/↩/g, '')
+    .replace(/←/g, '')
+    .replace(/→/g, '')
+    .replace(/↑/g, '')
+    .replace(/↓/g, '')
+    
+    // Remove common timestamps and metadata
+    .replace(/\d{1,2}:\d{2}\s*(am|pm)?/gi, '')
+    .replace(/\d{4}-\d{2}-\d{2}/g, '')
+    .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, '')
+    
+    // Remove common status indicators
+    .replace(/\b(typing|thinking|processing|generating|loading)\b/gi, '')
+    .replace(/\.{3,}/g, '') // Remove ellipsis
+    .replace(/-{3,}/g, '') // Remove dashes
+    .replace(/={3,}/g, '') // Remove equals
+    
+    // Remove common error messages
+    .replace(/error:\s*.*$/gmi, '')
+    .replace(/failed:\s*.*$/gmi, '')
+    .replace(/unable to:\s*.*$/gmi, '')
+    
+    // Remove common navigation elements
+    .replace(/\[previous\]/gi, '')
+    .replace(/\[next\]/gi, '')
+    .replace(/\[back\]/gi, '')
+    .replace(/\[continue\]/gi, '')
+    .replace(/\[more\]/gi, '')
+    .replace(/\[show more\]/gi, '')
+    .replace(/\[show less\]/gi, '');
+  
+  // Step 2: Clean up markdown and formatting
+  cleaned = cleaned
+    // Fix common markdown issues
+    .replace(/\*\*\s*\*\*/g, '') // Remove empty bold
+    .replace(/\*\s*\*/g, '') // Remove empty italic
+    .replace(/`\s*`/g, '') // Remove empty code
+    .replace(/\[\s*\]/g, '') // Remove empty links
+    .replace(/!\[\s*\]/g, '') // Remove empty images
+    
+    // Clean up code blocks
+    .replace(/```\s*\n\s*```/g, '') // Remove empty code blocks
+    .replace(/```\s*```/g, '') // Remove empty inline code blocks
+    
+    // Clean up lists
+    .replace(/^\s*[-*+]\s*$/gm, '') // Remove empty list items
+    .replace(/^\s*\d+\.\s*$/gm, '') // Remove empty numbered items
+    
+    // Clean up headings
+    .replace(/^#{1,6}\s*$/gm, '') // Remove empty headings
+    
+    // Clean up blockquotes
+    .replace(/^>\s*$/gm, '') // Remove empty blockquotes
+    .replace(/^>\s*>\s*$/gm, '') // Remove empty nested blockquotes
+    
+    // Clean up horizontal rules
+    .replace(/^[-*_]{3,}\s*$/gm, '') // Remove horizontal rules
+    
+    // Clean up tables
+    .replace(/\|\s*\|\s*\|/g, '') // Remove empty table rows
+    .replace(/^\s*\|.*\|\s*$/gm, (match) => {
+      // Remove table rows that are mostly empty
+      const content = match.replace(/\|/g, '').trim();
+      return content.length < 3 ? '' : match;
+    });
+  
+  // Step 3: Clean up whitespace and formatting
+  cleaned = cleaned
+    // Normalize whitespace
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // Replace multiple newlines with double newline
+    .replace(/^\s+|\s+$/g, '') // Trim start and end
+    
+    // Clean up line breaks
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // Replace multiple newlines
+    .replace(/^\s*\n/gm, '') // Remove leading newlines from lines
+    .replace(/\n\s*$/gm, '') // Remove trailing whitespace from lines
+    
+    // Clean up common formatting issues
+    .replace(/\s*,\s*,/g, ',') // Remove double commas
+    .replace(/\s*\.\s*\./g, '.') // Remove double periods
+    .replace(/\s*!\s*!/g, '!') // Remove double exclamations
+    .replace(/\s*\?\s*\?/g, '?') // Remove double question marks
+    
+    // Clean up punctuation
+    .replace(/\s*,\s*$/gm, '') // Remove trailing commas
+    .replace(/\s*;\s*$/gm, '') // Remove trailing semicolons
+    .replace(/\s*:\s*$/gm, '') // Remove trailing colons
+    
+    // Fix common spacing issues
+    .replace(/\s+([.!?])/g, '$1') // Remove space before punctuation
+    .replace(/([.!?])\s*([A-Z])/g, '$1 $2') // Add space after sentence
+    .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space between camelCase
+    
+    // Clean up quotes and brackets
+    .replace(/\s*"\s*"/g, '') // Remove empty quotes
+    .replace(/\s*'\s*'/g, '') // Remove empty single quotes
+    .replace(/\s*\(\s*\)/g, '') // Remove empty parentheses
+    .replace(/\s*\[\s*\]/g, '') // Remove empty brackets
+    .replace(/\s*{\s*}/g, '') // Remove empty braces
+    
+    // Final cleanup
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // Replace multiple newlines
+    .trim();
+  
+  // Step 4: Validate and structure the content
+  if (cleaned.length < 10) {
+    console.warn('[Velto] ⚠️ Cleaned text is too short, using original');
+    return text.trim();
+  }
+  
+  // Step 5: Add structure if needed
+  if (cleaned.length > 100 && !cleaned.includes('\n')) {
+    // If it's a long single line, try to add some structure
+    cleaned = addStructureToText(cleaned);
+  }
+  
+  console.log('[Velto] ✅ Content cleaned successfully');
+  return cleaned;
+}
+
+// Add structure to long text content
+function addStructureToText(text) {
+  // Split on common sentence endings
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  
+  if (sentences.length <= 1) return text;
+  
+  // Group sentences into paragraphs
+  const paragraphs = [];
+  let currentParagraph = [];
+  
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i].trim();
+    if (!sentence) continue;
+    
+    currentParagraph.push(sentence);
+    
+    // Create paragraph every 3-4 sentences or at natural breaks
+    if (currentParagraph.length >= 3 || 
+        sentence.endsWith('.') || 
+        sentence.endsWith('!') || 
+        sentence.endsWith('?')) {
+      paragraphs.push(currentParagraph.join(' '));
+      currentParagraph = [];
+    }
+  }
+  
+  // Add remaining sentences
+  if (currentParagraph.length > 0) {
+    paragraphs.push(currentParagraph.join(' '));
+  }
+  
+  return paragraphs.join('\n\n');
+}
+
+// Clean user prompts
+function cleanPromptText(text) {
+  if (!text) return '';
+  
+  return text
+    .replace(/^you said:\s*/i, '')
+    .replace(/^user:\s*/i, '')
+    .replace(/^prompt:\s*/i, '')
+    .replace(/^question:\s*/i, '')
+    .replace(/^ask:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // Check if response appears complete
@@ -615,59 +822,62 @@ function isResponseComplete(text) {
 // Process complete response and map to conversation
 function processCompleteResponse(responseText) {
   console.log('[Velto] 🤖 CHATGPT RESPONSE COMPLETE:', responseText.substring(0, 100) + '...');
-    
-    // Map response to the latest prompt
-    if (conversationContext.conversationTurns.length > 0) {
-      const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
-      if (latestTurn && !latestTurn.response) {
-      latestTurn.response = responseText;
-        conversationContext.waitingForResponse = false;
+  
+  // Clean the response text before processing
+  const cleanedResponse = cleanResponseText(responseText);
+  
+  // Map response to the latest prompt
+  if (conversationContext.conversationTurns.length > 0) {
+    const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
+    if (latestTurn && !latestTurn.response) {
+      latestTurn.response = cleanedResponse;
+      conversationContext.waitingForResponse = false;
       console.log('[Velto] ✅ Mapped complete response to prompt:', latestTurn.prompt.substring(0, 50) + '...');
-        
-        // Auto-save this turn immediately
-      saveCurrentTurn(latestTurn);
-      } else {
-        // If the latest turn already has a response, look for an earlier one without response
-        let turnToUpdate = null;
-        for (let i = conversationContext.conversationTurns.length - 1; i >= 0; i--) {
-          if (!conversationContext.conversationTurns[i].response) {
-            turnToUpdate = conversationContext.conversationTurns[i];
-            break;
-          }
-        }
-        
-        if (turnToUpdate) {
-        turnToUpdate.response = responseText;
-          conversationContext.waitingForResponse = false;
-        console.log('[Velto] ✅ Mapped complete response to earlier prompt:', turnToUpdate.prompt.substring(0, 50) + '...');
-          
-          // Auto-save this turn immediately
-        saveCurrentTurn(turnToUpdate);
-        } else {
-          // If no prompt found, create a new turn with empty prompt
-          const newTurn = {
-            prompt: '[Previous conversation]',
-          response: responseText,
-          timestamp: Date.now()
-          };
-          conversationContext.conversationTurns.push(newTurn);
-          console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
-          
-          // Auto-save this turn immediately
-        saveCurrentTurn(newTurn);
-        }
-      }
-    } else {
-      // If no turns exist yet, create first turn
-      const newTurn = {
-        prompt: '[Initial conversation]',
-      response: responseText,
-      timestamp: Date.now()
-      };
-      conversationContext.conversationTurns.push(newTurn);
-    console.log('[Velto] 🆕 Created first turn with complete response');
       
       // Auto-save this turn immediately
+      saveCurrentTurn(latestTurn);
+    } else {
+      // If the latest turn already has a response, look for an earlier one without response
+      let turnToUpdate = null;
+      for (let i = conversationContext.conversationTurns.length - 1; i >= 0; i--) {
+        if (!conversationContext.conversationTurns[i].response) {
+          turnToUpdate = conversationContext.conversationTurns[i];
+          break;
+        }
+      }
+      
+      if (turnToUpdate) {
+        turnToUpdate.response = cleanedResponse;
+        conversationContext.waitingForResponse = false;
+        console.log('[Velto] ✅ Mapped complete response to earlier prompt:', turnToUpdate.prompt.substring(0, 50) + '...');
+        
+        // Auto-save this turn immediately
+        saveCurrentTurn(turnToUpdate);
+      } else {
+        // If no prompt found, create a new turn with empty prompt
+        const newTurn = {
+          prompt: '[Previous conversation]',
+          response: cleanedResponse,
+          timestamp: Date.now()
+        };
+        conversationContext.conversationTurns.push(newTurn);
+        console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
+        
+        // Auto-save this turn immediately
+        saveCurrentTurn(newTurn);
+      }
+    }
+  } else {
+    // If no turns exist yet, create first turn
+    const newTurn = {
+      prompt: '[Initial conversation]',
+      response: cleanedResponse,
+      timestamp: Date.now()
+    };
+    conversationContext.conversationTurns.push(newTurn);
+    console.log('[Velto] 🆕 Created first turn with complete response');
+    
+    // Auto-save this turn immediately
     saveCurrentTurn(newTurn);
   }
 }
@@ -676,9 +886,19 @@ function processCompleteResponse(responseText) {
 function saveCurrentTurn(turn) {
   if (!turn || !turn.response) return;
   
+  // Check if extension context is still valid
+  if (!chrome.runtime?.id) {
+    console.warn('[Velto] ⚠️ Extension context invalidated, cannot save turn');
+    return;
+  }
+  
+  // Clean the prompt and response before saving
+  const cleanedPrompt = cleanPromptText(turn.prompt);
+  const cleanedResponse = cleanResponseText(turn.response);
+  
   const turnData = {
     title: `ChatGPT Turn - ${new Date(turn.timestamp).toLocaleString()}`,
-    content: `# ChatGPT Conversation Turn\n\n**User Prompt:**\n${turn.prompt}\n\n**AI Response:**\n${turn.response}\n\n**Timestamp:** ${new Date(turn.timestamp).toLocaleString()}`,
+    content: `# ChatGPT Conversation Turn\n\n**User Prompt:**\n${cleanedPrompt}\n\n**AI Response:**\n${cleanedResponse}\n\n**Timestamp:** ${new Date(turn.timestamp).toLocaleString()}`,
     type: 'conversation_turn',
     source: {
       type: 'auto',
@@ -695,7 +915,11 @@ function saveCurrentTurn(turn) {
       sessionDuration: turn.timestamp - conversationContext.startTime
     },
     conversation: {
-      conversationTurns: [turn],
+      conversationTurns: [{
+        prompt: cleanedPrompt,
+        response: cleanedResponse,
+        timestamp: turn.timestamp
+      }],
       sessionId: conversationContext.sessionId,
       startTime: conversationContext.startTime,
       endTime: turn.timestamp
@@ -704,16 +928,25 @@ function saveCurrentTurn(turn) {
   
   console.log('[Velto] 📤 Auto-saving individual turn to database');
   
-  chrome.runtime.sendMessage({
-    type: MSG.CONTEXTS_CREATE,
-    payload: turnData,
-  }, (res) => {
-    if (res?.ok) {
-      console.log('[Velto] ✅ Individual turn saved successfully');
-    } else {
-      console.warn('[Velto] ❌ Failed to save individual turn:', res);
-    }
-  });
+  try {
+    chrome.runtime.sendMessage({
+      type: MSG.CONTEXTS_CREATE,
+      payload: turnData,
+    }, (res) => {
+      if (chrome.runtime.lastError) {
+        console.warn('[Velto] ❌ Extension context error:', chrome.runtime.lastError.message);
+        return;
+      }
+      
+      if (res?.ok) {
+        console.log('[Velto] ✅ Individual turn saved successfully');
+      } else {
+        console.warn('[Velto] ❌ Failed to save individual turn:', res);
+      }
+    });
+  } catch (error) {
+    console.warn('[Velto] ❌ Error sending message to background script:', error);
+  }
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -944,14 +1177,21 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
     promptVersionDiv.style.display = 'block';
     
     // Use chrome.runtime.sendMessage to avoid CORS issues
-    const response = await chrome.runtime.sendMessage({
-      type: 'GENERATE_PROMPT_VERSION',
-      payload: {
-        contextId: contextId,
-        userPrompt: userPrompt,
-        relatedContexts: [] // Empty array for now, can be enhanced later
-      }
-    });
+    let response;
+    try {
+      response = await chrome.runtime.sendMessage({
+        type: 'GENERATE_PROMPT_VERSION',
+        payload: {
+          contextId: contextId,
+          userPrompt: userPrompt,
+          relatedContexts: [] // Empty array for now, can be enhanced later
+        }
+      });
+    } catch (error) {
+      console.warn('[Velto] ❌ Error sending message to background script:', error);
+      promptContent.textContent = 'Error: Extension context invalidated';
+      return;
+    }
 
     if (response?.success && response.data?.promptVersion) {
       const promptVersion = response.data.promptVersion;
