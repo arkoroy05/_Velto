@@ -250,17 +250,31 @@ function saveConversationContext() {
 function buildConversationContent() {
   let content = '';
   
-  // Build structured conversation with prompt-response pairs
-  if (conversationContext.conversationTurns.length > 0) {
-    content += '# ChatGPT Conversation\n\n';
+  // Build structured conversation with only complete turns
+  if (conversationContext.conversationTurns.length > 0) {    
+    // Filter to only complete turns (have both prompt and response)
+    const completeTurns = conversationContext.conversationTurns.filter(turn => 
+      turn.prompt && turn.prompt.trim() && 
+      turn.response && turn.response.trim() &&
+      !turn.prompt.includes('[Previous conversation]') &&
+      !turn.prompt.includes('[Initial conversation]')
+    );
     
-    conversationContext.conversationTurns.forEach((turn, index) => {
-      content += `## Turn ${index + 1}\n\n`;
-      content += `**User Prompt:**\n${turn.prompt}\n\n`;
-      content += `**AI Response:**\n${turn.response}\n\n`;
-      content += `**Timestamp:** ${new Date(turn.timestamp).toLocaleString()}\n\n`;
-      content += `---\n\n`; // Separator between turns
-    });
+    if (completeTurns.length > 0) {
+      // Only keep the last complete turn to avoid duplicates
+      const lastCompleteTurn = completeTurns[completeTurns.length - 1];
+      content += `**User Prompt:**\n${cleanPromptText(lastCompleteTurn.prompt)}\n\n`;
+      content += `**AI Response:**\n${cleanResponseText(lastCompleteTurn.response)}\n\n`;
+      content += `**Timestamp:** ${new Date(lastCompleteTurn.timestamp).toLocaleString()}\n\n`;
+    } else {
+      // Fallback: use the last turn even if incomplete
+      const lastTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
+      if (lastTurn) {
+        content += `**User Prompt:**\n${cleanPromptText(lastTurn.prompt || '[User prompt not captured]')}\n\n`;
+        content += `**AI Response:**\n${cleanResponseText(lastTurn.response || '')}\n\n`;
+        content += `**Timestamp:** ${new Date(lastTurn.timestamp).toLocaleString()}\n\n`;
+      }
+    }
   }
   
   return content.trim();
@@ -895,6 +909,12 @@ function saveCurrentTurn(turn) {
   // Clean the prompt and response before saving
   const cleanedPrompt = cleanPromptText(turn.prompt);
   const cleanedResponse = cleanResponseText(turn.response);
+  
+  // Only save if we have a meaningful prompt (not placeholder text)
+  if (!cleanedPrompt || cleanedPrompt.includes('[Previous conversation]') || cleanedPrompt.includes('[Initial conversation]')) {
+    console.log('[Velto] ⏭️ Skipping turn save - no meaningful prompt captured');
+    return;
+  }
   
   const turnData = {
     title: `ChatGPT Turn - ${new Date(turn.timestamp).toLocaleString()}`,

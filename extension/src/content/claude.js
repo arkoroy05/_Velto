@@ -89,24 +89,24 @@ async function handleCapture() {
     return;
   }
   try {
-    chrome.runtime.sendMessage({
-      type: MSG.CONTEXTS_CREATE,
-      payload: {
-        content,
-        title: 'Claude selection',
-        url: location.href,
-        host: location.host,
-        tool: 'Claude',
-      },
-    }, (res) => {
+  chrome.runtime.sendMessage({
+    type: MSG.CONTEXTS_CREATE,
+    payload: {
+      content,
+      title: 'Claude selection',
+      url: location.href,
+      host: location.host,
+      tool: 'Claude',
+    },
+  }, (res) => {
       if (chrome.runtime.lastError) {
         console.warn('[Velto] ❌ Extension context error:', chrome.runtime.lastError.message);
         return;
       }
       
-      if (res?.ok) console.log('[Velto] snippet saved', res);
-      else console.warn('[Velto] failed to save snippet', res);
-    });
+    if (res?.ok) console.log('[Velto] snippet saved', res);
+    else console.warn('[Velto] failed to save snippet', res);
+  });
   } catch (error) {
     console.warn('[Velto] ❌ Error sending message to background script:', error);
   }
@@ -237,30 +237,30 @@ function saveConversationContext() {
   console.log('[Velto] 📤 Sending conversation context to background:', conversationData);
   
   try {
-    chrome.runtime.sendMessage({
-      type: MSG.CONTEXTS_CREATE,
-      payload: conversationData,
-    }, (res) => {
+  chrome.runtime.sendMessage({
+    type: MSG.CONTEXTS_CREATE,
+    payload: conversationData,
+  }, (res) => {
       if (chrome.runtime.lastError) {
         console.warn('[Velto] ❌ Extension context error:', chrome.runtime.lastError.message);
         return;
       }
       
-      console.log('[Velto] 📥 Response from background:', res);
-      if (res?.ok) {
-        console.log('[Velto] ✅ Conversation context saved:', res);
-        // Reset conversation context
-        conversationContext = {
-          conversationTurns: [],
-          sessionId: Date.now().toString(36),
-          startTime: Date.now(),
-          currentPrompt: '',
-          waitingForResponse: false
-        };
-      } else {
-        console.warn('[Velto] ❌ Failed to save conversation context:', res);
-      }
-    });
+    console.log('[Velto] 📥 Response from background:', res);
+    if (res?.ok) {
+      console.log('[Velto] ✅ Conversation context saved:', res);
+      // Reset conversation context
+      conversationContext = {
+        conversationTurns: [],
+        sessionId: Date.now().toString(36),
+        startTime: Date.now(),
+        currentPrompt: '',
+        waitingForResponse: false
+      };
+    } else {
+      console.warn('[Velto] ❌ Failed to save conversation context:', res);
+    }
+  });
   } catch (error) {
     console.warn('[Velto] ❌ Error sending message to background script:', error);
   }
@@ -269,17 +269,35 @@ function saveConversationContext() {
 function buildConversationContent() {
   let content = '';
   
-  // Build structured conversation with prompt-response pairs
+  // Build structured conversation with only complete turns
   if (conversationContext.conversationTurns.length > 0) {
     content += '# Claude Conversation\n\n';
     
-    conversationContext.conversationTurns.forEach((turn, index) => {
-      content += `## Turn ${index + 1}\n\n`;
-      content += `**User Prompt:**\n${turn.prompt}\n\n`;
-      content += `**AI Response:**\n${turn.response}\n\n`;
-      content += `**Timestamp:** ${new Date(turn.timestamp).toLocaleString()}\n\n`;
-      content += `---\n\n`; // Separator between turns
-    });
+    // Filter to only complete turns (have both prompt and response)
+    const completeTurns = conversationContext.conversationTurns.filter(turn => 
+      turn.prompt && turn.prompt.trim() && 
+      turn.response && turn.response.trim() &&
+      !turn.prompt.includes('[Previous conversation]') &&
+      !turn.prompt.includes('[Initial conversation]')
+    );
+    
+    if (completeTurns.length > 0) {
+      // Only keep the last complete turn to avoid duplicates
+      const lastCompleteTurn = completeTurns[completeTurns.length - 1];
+      content += `## Turn 1\n\n`;
+      content += `**User Prompt:**\n${cleanPromptText(lastCompleteTurn.prompt)}\n\n`;
+      content += `**AI Response:**\n${cleanResponseText(lastCompleteTurn.response)}\n\n`;
+      content += `**Timestamp:** ${new Date(lastCompleteTurn.timestamp).toLocaleString()}\n\n`;
+    } else {
+      // Fallback: use the last turn even if incomplete
+      const lastTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
+      if (lastTurn) {
+        content += `## Turn 1\n\n`;
+        content += `**User Prompt:**\n${cleanPromptText(lastTurn.prompt || '[User prompt not captured]')}\n\n`;
+        content += `**AI Response:**\n${cleanResponseText(lastTurn.response || '')}\n\n`;
+        content += `**Timestamp:** ${new Date(lastTurn.timestamp).toLocaleString()}\n\n`;
+      }
+    }
   }
   
   return content.trim();
@@ -591,7 +609,7 @@ function monitorStreamingResponse(streamingElement) {
   });
   
   // Stop observing after 30 seconds
-  setTimeout(() => {
+                setTimeout(() => {
     if (streamingObserver) {
       streamingObserver.disconnect();
       if (lastStreamedText) {
@@ -909,54 +927,54 @@ function processCompleteResponse(responseText) {
   
   // Clean the response text before processing
   const cleanedResponse = cleanResponseText(responseText);
-  
-  // Map response to the latest prompt
-  if (conversationContext.conversationTurns.length > 0) {
-    const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
-    if (latestTurn && !latestTurn.response) {
+                    
+                    // Map response to the latest prompt
+                    if (conversationContext.conversationTurns.length > 0) {
+                      const latestTurn = conversationContext.conversationTurns[conversationContext.conversationTurns.length - 1];
+                      if (latestTurn && !latestTurn.response) {
       latestTurn.response = cleanedResponse;
       conversationContext.waitingForResponse = false;
       console.log('[Velto] ✅ Mapped complete Claude response to prompt:', latestTurn.prompt.substring(0, 50) + '...');
       
       // Auto-save this turn immediately
       saveCurrentTurn(latestTurn);
-    } else {
-      // If the latest turn already has a response, look for an earlier one without response
-      let turnToUpdate = null;
-      for (let i = conversationContext.conversationTurns.length - 1; i >= 0; i--) {
-        if (!conversationContext.conversationTurns[i].response) {
-          turnToUpdate = conversationContext.conversationTurns[i];
-          break;
-        }
-      }
-      
-      if (turnToUpdate) {
+                      } else {
+                        // If the latest turn already has a response, look for an earlier one without response
+                        let turnToUpdate = null;
+                        for (let i = conversationContext.conversationTurns.length - 1; i >= 0; i--) {
+                          if (!conversationContext.conversationTurns[i].response) {
+                            turnToUpdate = conversationContext.conversationTurns[i];
+                            break;
+                          }
+                        }
+                        
+                        if (turnToUpdate) {
         turnToUpdate.response = cleanedResponse;
         conversationContext.waitingForResponse = false;
         console.log('[Velto] ✅ Mapped complete Claude response to earlier prompt:', turnToUpdate.prompt.substring(0, 50) + '...');
         
         // Auto-save this turn immediately
         saveCurrentTurn(turnToUpdate);
-      } else {
-        // If no prompt found, create a new turn with empty prompt
+                        } else {
+                          // If no prompt found, create a new turn with empty prompt
         const newTurn = {
-          prompt: '[Previous conversation]',
+                            prompt: '[Previous conversation]',
           response: cleanedResponse,
-          timestamp: Date.now()
+                            timestamp: Date.now()
         };
         conversationContext.conversationTurns.push(newTurn);
-        console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
+                          console.log('[Velto] ⚠️ No prompt found, created turn with empty prompt');
         
         // Auto-save this turn immediately
         saveCurrentTurn(newTurn);
-      }
-    }
-  } else {
-    // If no turns exist yet, create first turn
+                        }
+                      }
+                    } else {
+                      // If no turns exist yet, create first turn
     const newTurn = {
-      prompt: '[Initial conversation]',
+                        prompt: '[Initial conversation]',
       response: cleanedResponse,
-      timestamp: Date.now()
+                        timestamp: Date.now()
     };
     conversationContext.conversationTurns.push(newTurn);
     console.log('[Velto] 🆕 Created first turn with complete Claude response');
@@ -979,6 +997,12 @@ function saveCurrentTurn(turn) {
   // Clean the prompt and response before saving
   const cleanedPrompt = cleanPromptText(turn.prompt);
   const cleanedResponse = cleanResponseText(turn.response);
+  
+  // Only save if we have a meaningful prompt (not placeholder text)
+  if (!cleanedPrompt || cleanedPrompt.includes('[Previous conversation]') || cleanedPrompt.includes('[Initial conversation]')) {
+    console.log('[Velto] ⏭️ Skipping turn save - no meaningful prompt captured');
+    return;
+  }
   
   const turnData = {
     title: `Claude Turn - ${new Date(turn.timestamp).toLocaleString()}`,
@@ -1077,12 +1101,12 @@ async function searchContextSuggestions(userPrompt) {
       let response;
       try {
         response = await chrome.runtime.sendMessage({
-          type: 'CONTEXT_SUGGESTION_REQUEST',
-          payload: {
-            userPrompt: userPrompt,
-            projectId: projectId
-          }
-        });
+        type: 'CONTEXT_SUGGESTION_REQUEST',
+        payload: {
+          userPrompt: userPrompt,
+          projectId: projectId
+        }
+      });
       } catch (error) {
         console.warn('[Velto] ❌ Extension context error:', error);
         throw new Error('Extension context invalidated');
@@ -1181,9 +1205,9 @@ async function fetchAllContexts() {
     let response;
     try {
       response = await chrome.runtime.sendMessage({
-        type: 'FETCH_ALL_CONTEXTS',
-        payload: {}
-      });
+      type: 'FETCH_ALL_CONTEXTS',
+      payload: {}
+    });
     } catch (error) {
       console.warn('[Velto] ❌ Extension context error:', error);
       return;
@@ -1368,13 +1392,13 @@ async function generatePromptVersion(contextId, userPrompt, popup) {
     let response;
     try {
       response = await chrome.runtime.sendMessage({
-        type: 'GENERATE_PROMPT_VERSION',
-        payload: {
-          contextId: contextId,
-          userPrompt: userPrompt,
-          relatedContexts: [] // Empty array for now, can be enhanced later
-        }
-      });
+      type: 'GENERATE_PROMPT_VERSION',
+      payload: {
+        contextId: contextId,
+        userPrompt: userPrompt,
+        relatedContexts: [] // Empty array for now, can be enhanced later
+      }
+    });
     } catch (error) {
       console.warn('[Velto] ❌ Error sending message to background script:', error);
       promptContent.textContent = 'Error: Extension context invalidated';
